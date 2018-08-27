@@ -1,9 +1,4 @@
-﻿//-----------------------------------------------------------------------
-// <copyright file="ProfilePresenter.cs" company="APSIM Initiative">
-//     Copyright (c) APSIM Initiative
-// </copyright>
-//-----------------------------------------------------------------------
-namespace UserInterface.Presenters
+﻿namespace UserInterface.Presenters
 {
     using System;
     using System.Collections.Generic;
@@ -20,12 +15,11 @@ namespace UserInterface.Presenters
     using Views;
 
     /// <summary>
-    /// <para>
     /// This presenter talks to a ProfileView to display profile (layered) data in a grid.
-    /// It uses reflection to look for public properties that are read/write, have a
-    /// [Description] attribute and return either double[] or string[].
-    /// </para>
-    /// <para>
+    /// It uses reflection to look for public properties that are read/write, and have a
+    /// [Description] attribute.
+    /// </summary>
+    /// <remarks>
     /// For each property found it will
     ///   1. optionally look for units via a units attribute:
     ///         [Units("kg/ha")]
@@ -36,8 +30,8 @@ namespace UserInterface.Presenters
     ///         where {Property} is the name of the property being examined.
     ///   3. optionally look for a metadata property named:
     ///     {Property}Metadata { get; set; }
-    /// </para>
-    /// </summary>
+    /// </remarks>
+
     public class ProfilePresenter : IPresenter
     {
         /// <summary>
@@ -71,6 +65,11 @@ namespace UserInterface.Presenters
         private List<VariableProperty> propertiesInGrid = new List<VariableProperty>();
 
         /// <summary>
+        /// Presenter for the profile grid.
+        /// </summary>
+        private GridPresenter profileGrid = new GridPresenter();
+
+        /// <summary>
         /// Our graph.
         /// </summary>
         private Graph graph;
@@ -95,11 +94,7 @@ namespace UserInterface.Presenters
         {
             this.model = model as Model;
             this.view = view as IProfileView;
-            this.view.ProfileGrid.FormatColumns += (sender, e) =>
-            {
-                FormatGrid((view as IProfileView).ProfileGrid.DataSource);
-            };
-
+            profileGrid.Attach(model, this.view.ProfileGrid, explorerPresenter);
             this.explorerPresenter = explorerPresenter;
 
             this.view.ShowView(false);
@@ -173,8 +168,6 @@ namespace UserInterface.Presenters
             // Trap the model changed event so that we can handle undo.
             this.explorerPresenter.CommandHistory.ModelChanged += this.OnModelChanged;
             
-            this.view.ProfileGrid.ResizeControls();
-            this.view.PropertyGrid.ResizeControls();
             this.view.ShowView(true);
         }
 
@@ -188,7 +181,8 @@ namespace UserInterface.Presenters
             this.view.ProfileGrid.ColumnHeaderClicked -= this.OnColumnHeaderClicked;
             this.explorerPresenter.CommandHistory.ModelChanged -= this.OnModelChanged;
 
-            this.propertyPresenter.Detach();
+            propertyPresenter.Detach();
+            profileGrid.Detach();
             if (this.graphPresenter != null)
             {
                 this.graphPresenter.Detach();
@@ -283,7 +277,7 @@ namespace UserInterface.Presenters
                 }
 
                 string format = property.Format;
-                if (format == null)
+                if (format == null || format == string.Empty)
                 {
                     format = "N3";
                 }
@@ -474,10 +468,8 @@ namespace UserInterface.Presenters
                         if (changedValues)
                         {
                             // Store the property change.
-                            Commands.ChangeProperty.Property property = new Commands.ChangeProperty.Property();
-                            property.Name = this.propertiesInGrid[i].Name;
-                            property.Obj = this.propertiesInGrid[i].Object;
-                            property.NewValue = values;
+                            Commands.ChangeProperty.Property property = 
+                                new Commands.ChangeProperty.Property(this.propertiesInGrid[i].Object, this.propertiesInGrid[i].Name, values);
                             properties.Add(property);
                         }
                     }
@@ -553,12 +545,7 @@ namespace UserInterface.Presenters
                     }
                     catch (Exception e)
                     {
-                        if (e is System.Reflection.TargetInvocationException)
-                        {
-                            e = (e as System.Reflection.TargetInvocationException).InnerException;
-                        }
-
-                        this.explorerPresenter.MainPresenter.ShowError(e);
+                        explorerPresenter.MainPresenter.ShowError(e);
                     }
                 }
             }
@@ -611,8 +598,8 @@ namespace UserInterface.Presenters
             VariableProperty property = this.propertiesInGrid[this.indexOfClickedVariable];
             if (sender is Gtk.MenuItem)
             {
-                property.Units = (sender as Gtk.MenuItem).Name;
-                this.OnModelChanged(this.model);
+                string unitsString = (sender as Gtk.MenuItem).Name;
+                this.explorerPresenter.CommandHistory.Add(new Commands.ChangeProperty(property, "Units", unitsString));               
             }
         }
     }

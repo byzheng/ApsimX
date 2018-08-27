@@ -45,8 +45,35 @@ namespace Models
                 if (args.Length >= 1)
                     fileName = args[0];
 
-                if (args.Length < 1 || args.Length > 4)
-                    throw new Exception("Usage: ApsimX ApsimXFileSpec [/Recurse] [/SingleThreaded] [/RunTests] [/Csv]");
+                string usageMessage = "Usage: Models ApsimXFileSpec [/Recurse] [/SingleThreaded] [/RunTests] [/Csv] [/Version] [/?]";
+                if (args.Contains("/?"))
+                {
+                    string detailedHelpInfo = usageMessage;
+                    detailedHelpInfo += Environment.NewLine + Environment.NewLine;
+                    detailedHelpInfo += "ApsimXFileSpec:          The path to an .apsimx file. May include wildcard.";
+                    detailedHelpInfo += Environment.NewLine + Environment.NewLine + "Options:" + Environment.NewLine;
+                    detailedHelpInfo += "    /Recurse             Recursively search subdirectories for files matching ApsimXFileSpec" + Environment.NewLine;
+                    detailedHelpInfo += "    /SingleThreaded      Run all simulations in a single thread." + Environment.NewLine;
+                    detailedHelpInfo += "    /RunTests            Run all tests." + Environment.NewLine;
+                    detailedHelpInfo += "    /Csv                 Export all reports to .csv files." + Environment.NewLine;
+                    detailedHelpInfo += "    /Version             Display the version number." + Environment.NewLine;
+                    detailedHelpInfo += "    /?                   Show detailed help information.";
+                    Console.WriteLine(detailedHelpInfo);
+                    return 1;
+                }
+
+                if (args.Length < 1 || args.Length > 7)
+                {
+                    Console.WriteLine(usageMessage);
+                    return 1;
+                }
+
+                if (args.Contains("/Version"))
+                {
+                    Model m = new Model();
+                    Console.WriteLine(m.ApsimVersion);
+                    return 0;
+                }
 
                 Stopwatch timer = new Stopwatch();
                 timer.Start();

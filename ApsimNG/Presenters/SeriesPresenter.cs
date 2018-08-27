@@ -9,6 +9,7 @@ namespace UserInterface.Presenters
     using System.Collections.Generic;
     using System.Data;
     using System.Drawing;
+    using EventArguments;
     using System.Linq;
     using APSIM.Shared.Utilities;
     using Interfaces;
@@ -39,6 +40,11 @@ namespace UserInterface.Presenters
         /// <summary>The graph presenter</summary>
         private GraphPresenter graphPresenter;
 
+        /// <summary>
+        /// The intellisense.
+        /// </summary>
+        private IntellisensePresenter intellisense;
+
         /// <summary>Attach the model and view to this presenter.</summary>
         /// <param name="model">The graph model to work with</param>
         /// <param name="view">The series view to work with</param>
@@ -48,6 +54,8 @@ namespace UserInterface.Presenters
             this.series = model as Series;
             this.seriesView = view as SeriesView;
             this.explorerPresenter = explorerPresenter;
+            intellisense = new IntellisensePresenter(seriesView as ViewBase);
+            intellisense.ItemSelected += OnIntellisenseItemSelected;
 
             Graph parentGraph = Apsim.Parent(series, typeof(Graph)) as Graph;
             if (parentGraph != null)
@@ -66,6 +74,7 @@ namespace UserInterface.Presenters
         public void Detach()
         {
             seriesView.EndEdit();
+            intellisense.ItemSelected -= OnIntellisenseItemSelected;
             if (graphPresenter != null)
             {
                 graphPresenter.Detach();
@@ -96,6 +105,7 @@ namespace UserInterface.Presenters
             this.seriesView.YCumulative.Changed += OnCumulativeYChanged;
             this.seriesView.XCumulative.Changed += OnCumulativeXChanged;
             this.seriesView.Filter.Changed += OnFilterChanged;
+            this.seriesView.Filter.IntellisenseItemsNeeded += OnIntellisenseItemsNeeded;
         }
 
         /// <summary>Disconnect all view events.</summary>
@@ -120,6 +130,7 @@ namespace UserInterface.Presenters
             this.seriesView.YCumulative.Changed -= OnCumulativeYChanged;
             this.seriesView.XCumulative.Changed -= OnCumulativeXChanged;
             this.seriesView.Filter.Changed -= OnFilterChanged;
+            this.seriesView.Filter.IntellisenseItemsNeeded += OnIntellisenseItemsNeeded;
         }
 
         /// <summary>Set the value of the graph models property</summary>
@@ -129,6 +140,16 @@ namespace UserInterface.Presenters
         {
             Commands.ChangeProperty command = new Commands.ChangeProperty(series, name, value);
             this.explorerPresenter.CommandHistory.Add(command);
+        }
+
+        /// <summary>
+        /// Invoked when the user selects an item in the intellisense window.
+        /// </summary>
+        /// <param name="sender">Sender object.</param>
+        /// <param name="args">Event arguments.</param>
+        private void OnIntellisenseItemSelected(object sender, IntellisenseItemSelectedArgs args)
+        {
+            seriesView.Filter.InsertCompletionOption(args.ItemSelected, args.TriggerWord);
         }
 
         #region Events from the view
@@ -155,15 +176,10 @@ namespace UserInterface.Presenters
             if (Enum.TryParse<LineType>(this.seriesView.LineType.SelectedValue, out lineType))
             {
                 this.SetModelProperty("Line", lineType);
-                this.SetModelProperty("FactorIndexToVaryLines", -1);
+                this.SetModelProperty("FactorToVaryLines", null);
             }
             else
-            {
-                List<string> values = new List<string>();
-                values.AddRange(series.FactorNamesForVarying.Select(factorName => "Vary by " + factorName));
-                int factorIndex = values.IndexOf(this.seriesView.LineType.SelectedValue);
-                this.SetModelProperty("FactorIndexToVaryLines", factorIndex);
-            }
+                this.SetModelProperty("FactorToVaryLines", this.seriesView.LineType.SelectedValue.Replace("Vary by ", ""));
         }
         
         /// <summary>Series marker type has been changed by the user.</summary>
@@ -175,15 +191,10 @@ namespace UserInterface.Presenters
             if (Enum.TryParse<MarkerType>(this.seriesView.MarkerType.SelectedValue, out markerType))
             {
                 this.SetModelProperty("Marker", markerType);
-                this.SetModelProperty("FactorIndexToVaryMarkers", -1);
+                this.SetModelProperty("FactorToVaryMarkers", null);
             }
             else
-            {
-                List<string> values = new List<string>();
-                values.AddRange(series.FactorNamesForVarying.Select(factorName => "Vary by " + factorName));
-                int factorIndex = values.IndexOf(this.seriesView.MarkerType.SelectedValue);
-                this.SetModelProperty("FactorIndexToVaryMarkers", factorIndex);
-            }
+                this.SetModelProperty("FactorToVaryMarkers", this.seriesView.MarkerType.SelectedValue.Replace("Vary by ", ""));
         }
 
         /// <summary>Series line thickness has been changed by the user.</summary>
@@ -219,15 +230,10 @@ namespace UserInterface.Presenters
             if (obj is Color)
             {
                 this.SetModelProperty("Colour", obj);
-                this.SetModelProperty("FactorIndexToVaryColours", -1);
+                this.SetModelProperty("FactorToVaryColours", null);
             }
             else
-            {
-                List<string> colourOptions = new List<string>();
-                colourOptions.AddRange(series.FactorNamesForVarying.Select(factorName => "Vary by " + factorName));
-                int factorIndex = colourOptions.IndexOf(obj.ToString());
-                this.SetModelProperty("FactorIndexToVaryColours", factorIndex);
-            }
+                this.SetModelProperty("FactorToVaryColours", obj.ToString().Replace("Vary by ", ""));
         }
 
         /// <summary>X on top has been changed by the user.</summary>
@@ -351,6 +357,24 @@ namespace UserInterface.Presenters
             this.SetModelProperty("Filter", this.seriesView.Filter.Value);
         }
 
+        /// <summary>
+        /// Invoked when the user is asking for items for the intellisense.
+        /// </summary>
+        /// <param name="sender">Sender object.</param>
+        /// <param name="args">Event arguments.</param>
+        private void OnIntellisenseItemsNeeded(object sender, NeedContextItemsArgs args)
+        {
+            try
+            {
+                if (intellisense.GenerateSeriesCompletions(args.Code, args.Offset, seriesView.DataSource.SelectedValue, storage))
+                    intellisense.Show(args.Coordinates.Item1, args.Coordinates.Item2);
+            }
+            catch (Exception err)
+            {
+                explorerPresenter.MainPresenter.ShowError(err);
+            }
+        }
+
         #endregion
 
         /// <summary>Populate the views series editor with the current selected series.</summary>
@@ -417,18 +441,13 @@ namespace UserInterface.Presenters
             }
 
             this.seriesView.LineType.Values = values.ToArray();
-            if (series.FactorIndexToVaryLines == -1)
+            if (series.FactorToVaryLines == null)
             {
-                this.seriesView.LineType.SelectedValue = series.Line.ToString();
-            }
-            else if (series.FactorIndexToVaryLines >= series.FactorNamesForVarying.Count)
-            {
-                series.FactorIndexToVaryLines = -1;
                 this.seriesView.LineType.SelectedValue = series.Line.ToString();
             }
             else
             {
-                this.seriesView.LineType.SelectedValue = "Vary by " + series.FactorNamesForVarying[series.FactorIndexToVaryLines];
+                this.seriesView.LineType.SelectedValue = "Vary by " + series.FactorToVaryLines;
             }
         }
 
@@ -442,18 +461,13 @@ namespace UserInterface.Presenters
             }
 
             this.seriesView.MarkerType.Values = values.ToArray();
-            if (series.FactorIndexToVaryMarkers == -1)
+            if (series.FactorToVaryMarkers == null)
             {
-                this.seriesView.MarkerType.SelectedValue = series.Marker.ToString();
-            }
-            else if (series.FactorIndexToVaryMarkers >= series.FactorNamesForVarying.Count)
-            {
-                series.FactorIndexToVaryMarkers = -1;
                 this.seriesView.MarkerType.SelectedValue = series.Marker.ToString();
             }
             else
             {
-                this.seriesView.MarkerType.SelectedValue = "Vary by " + series.FactorNamesForVarying[series.FactorIndexToVaryMarkers];
+                this.seriesView.MarkerType.SelectedValue = "Vary by " + series.FactorToVaryMarkers;
             }
         }
 
@@ -473,18 +487,13 @@ namespace UserInterface.Presenters
             }
 
             this.seriesView.Colour.Values = colourOptions.ToArray();
-            if (series.FactorIndexToVaryColours == -1)
+            if (series.FactorToVaryColours == null)
             {
-                this.seriesView.Colour.SelectedValue = series.Colour;
-            }
-            else if (series.FactorIndexToVaryColours >= series.FactorNamesForVarying.Count)
-            {
-                series.FactorIndexToVaryColours = -1;
                 this.seriesView.Colour.SelectedValue = series.Colour;
             }
             else
             {
-                this.seriesView.Colour.SelectedValue = "Vary by " + series.FactorNamesForVarying[series.FactorIndexToVaryColours];
+                this.seriesView.Colour.SelectedValue = "Vary by " + series.FactorToVaryColours;
             }
         }
 

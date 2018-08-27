@@ -4,6 +4,8 @@
 // </copyright>
 // -----------------------------------------------------------------------
 using System;
+using System.Drawing;
+
 namespace UserInterface.Interfaces
 {
     /// <summary>

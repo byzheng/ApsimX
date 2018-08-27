@@ -7,7 +7,7 @@ using Models.PMF.Interfaces;
 using Models.Interfaces;
 using APSIM.Shared.Utilities;
 using Models.PMF.Struct;
-using Models.PMF.Functions;
+using Models.Functions;
 
 namespace Models.PMF.Organs
 {
@@ -60,8 +60,9 @@ namespace Models.PMF.Organs
         [Link]
         private Leaf Leaf = null;
 
-        [Link]
-        private IApex Apex = null;
+        /// <summary>The leaf apex model</summary>
+        [Link(IsOptional = true)]
+        public IApex Apex = null;
 
         /// <summary>The clock</summary>
         [Link]
@@ -209,18 +210,6 @@ namespace Models.PMF.Organs
         /// <summary>The cohort population</summary>
         [XmlIgnore]
         public double CohortPopulation; //Number of leaves in this cohort
-
-        /// <summary>Number of apex age groups in the cohort</summary>
-        [XmlIgnore]
-        public int GroupNumber;
-
-        /// <summary>The number of leaves in each age group</summary>
-        [XmlIgnore]
-        public double[] GroupSize;
-
-        /// <summary>The age of apex in each age group</summary>
-        [XmlIgnore]
-        public double[] GroupAge;
 
         /// <summary>The cell division stress factor</summary>
         [XmlIgnore]
@@ -455,14 +444,6 @@ namespace Models.PMF.Organs
 
         /// <summary>MaintenanceRespiration</summary>
         public double MaintenanceRespiration { get; set; }
-
-        /// <summary>Total apex number in plant.</summary>
-        [Description("Total apex number in plant")]
-        public List<double> ApexGroupSize { get; set; }
-
-        /// <summary>Total apex number in plant.</summary>
-        [Description("Total apex number in plant")]
-        public List<double> ApexGroupAge { get; set; }
         #endregion
 
         #region Arbitration methods
@@ -724,6 +705,7 @@ namespace Models.PMF.Organs
             newLeaf.Dead = new Biomass();
             newLeaf.Detached = new Biomass();
             newLeaf.Removed = new Biomass();
+            newLeaf.Apex = Apex;
             return newLeaf;
         }
 
@@ -732,21 +714,27 @@ namespace Models.PMF.Organs
         {
             IsInitialised = true;
             Age = 0;
+            if (Apex != null)
+                Apex.DoCalculations(this);
         }
 
         /// <summary>Does the appearance.</summary>
-        /// <param name="leafFraction">The leaf fraction.</param>
+        /// <param name="cohortParams">The leaf fraction.</param>
         /// <param name="leafCohortParameters">The leaf cohort parameters.</param>
-        public void DoAppearance(double leafFraction, Leaf.LeafCohortParameters leafCohortParameters)
+        public void DoAppearance(ApparingLeafParams cohortParams, Leaf.LeafCohortParameters leafCohortParameters)
         {
+            if (Apex != null)
+                CohortPopulation = Apex.LeafTipAppearance(Plant.Population, cohortParams.TotalStemPopn);
+            else
+                CohortPopulation = Structure.TotalStemPopn;
+            Age = cohortParams.CohortAge;
+
             Name = "Leaf" + Rank.ToString();
             IsAppeared = true;
-            if (CohortPopulation == 0)
-                CohortPopulation = Apex.Appearance(Structure.ApexNum, Plant.Population, Structure.TotalStemPopn);
 
-            MaxArea = leafCohortParameters.MaxArea.Value() * CellDivisionStressFactor * leafFraction;
+            MaxArea = leafCohortParameters.MaxArea.Value() * CellDivisionStressFactor * cohortParams.FinalFraction;
             //Reduce potential leaf area due to the effects of stress prior to appearance on cell number 
-            GrowthDuration = leafCohortParameters.GrowthDuration.Value() * leafFraction;
+            GrowthDuration = leafCohortParameters.GrowthDuration.Value() * cohortParams.FinalFraction;
             LagDuration = leafCohortParameters.LagDuration.Value();
             SenescenceDuration = leafCohortParameters.SenescenceDuration.Value();
             DetachmentLagDuration = leafCohortParameters.DetachmentLagDuration.Value();
@@ -817,8 +805,21 @@ namespace Models.PMF.Organs
                     thermalTime = tt * leafCohortParameters.DroughtInducedSenAcceleration.Value();
                 else thermalTime = tt;
 
+                //Modify leaf area using tillering approach
+                double sizeAgeFactor = 1;
+                if (Apex != null && Apex.GroupSize.Length > 0)
+                {
+                    double totalf = Apex.GroupSize[0];
+                    for (int i = 1; i < Apex.GroupAge.Length; i++)
+                    {
+                        double f = leafCohortParameters.LeafSizeAgeMultiplier.Value(((int)Apex.GroupAge[i] - 1));
+                        totalf += f * Apex.GroupSize[i];
+                    }
+                    sizeAgeFactor = totalf / Apex.GroupSize.Sum();
+                }
+
                 //Leaf area growth parameters
-                DeltaPotentialArea = PotentialAreaGrowthFunction(thermalTime);
+                DeltaPotentialArea = PotentialAreaGrowthFunction(thermalTime) * sizeAgeFactor;
                 //Calculate delta leaf area in the absence of water stress
                 DeltaStressConstrainedArea = DeltaPotentialArea * leafCohortParameters.ExpansionStressValue;
                 //Reduce potential growth for water stress
@@ -905,16 +906,8 @@ namespace Models.PMF.Organs
             //Fixme.  Live.Nonstructural should probably be included in DM supply for leaf growth also
             double deltaActualArea = Math.Min(DeltaStressConstrainedArea, DeltaCarbonConstrainedArea);
 
-            //Modify leaf area using tillering approach
-            double totalf = ApexGroupSize[0];
-            for(int i=1; i< ApexGroupAge.Count;i++)
-            {
-                double f = leafCohortParameters.LeafSizeAgeMultiplier.Value(((int)ApexGroupAge[i] - 1));
-                totalf += f * Leaf.ApexGroupSize[i];
-            }
-
+            
             //Fixme.  Live.Storage should probably be included in DM supply for leaf growth also
-            deltaActualArea = deltaActualArea * totalf / ApexGroupSize.Sum();
             LiveArea += deltaActualArea;
             
             //Senessing leaf area
@@ -967,10 +960,8 @@ namespace Models.PMF.Organs
             MaintenanceRespiration = 0;
             //Do Maintenance respiration
             MaintenanceRespiration += Live.MetabolicWt*leafCohortParameters.MaintenanceRespirationFunction.Value();
-            Live.MetabolicWt *= (1 - leafCohortParameters.MaintenanceRespirationFunction.Value());
             MaintenanceRespiration += Live.StorageWt*leafCohortParameters.MaintenanceRespirationFunction.Value();
-            Live.StorageWt *= (1 - leafCohortParameters.MaintenanceRespirationFunction.Value());
-
+            
             Age = Age + thermalTime;
 
             // Do Detachment of this Leaf Cohort
@@ -1031,7 +1022,7 @@ namespace Models.PMF.Organs
         }
 
         /// <summary>Does the zeroing of some varibles.</summary>
-        protected void DoDailyCleanup()
+        public void DoDailyCleanup()
         {
             Detached.Clear();
             Removed.Clear();
@@ -1042,8 +1033,14 @@ namespace Models.PMF.Organs
         /// <returns>(mm2 leaf/cohort position/m2 soil/day)</returns>
         public double PotentialAreaGrowthFunction(double tt)
         {
-            double leafSizeDelta = SizeFunction(Age + tt) - SizeFunction(Age);
-                //mm2 of leaf expanded in one day at this cohort (Today's minus yesterday's Area/cohort)
+            if (Age > GrowthDuration)
+            {
+                return 0;
+            }
+            double ageToday = Math.Min(Age + tt, GrowthDuration);
+
+            double leafSizeDelta = SizeFunction(ageToday) - SizeFunction(Age);
+            //mm2 of leaf expanded in one day at this cohort (Today's minus yesterday's Area/cohort)
             double growth = CohortPopulation*leafSizeDelta;
                 // Daily increase in leaf area for that cohort position in a per m2 basis (mm2/m2/day)
             if (growth < 0)
@@ -1073,28 +1070,33 @@ namespace Models.PMF.Organs
 
         public double LiveStemNumber (Leaf.LeafCohortParameters leafCohortParameters)
         {
-            double _lagDuration;
-            double _senescenceDuration;
-            double lsn = 0;
-            for (int i = 0; i < ApexGroupAge.Count; i++)
+            if (Apex == null)
+                return 0;
+            else
             {
-                if (i == 0)
+                double _lagDuration;
+                double _senescenceDuration;
+                double lsn = 0;
+                for (int i = 0; i < Apex.GroupAge.Length; i++)
                 {
-                    _lagDuration = LagDuration;
-                    _senescenceDuration = SenescenceDuration;
-                }
-                else
-                {
-                    _lagDuration = LagDuration * leafCohortParameters.LagDurationAgeMultiplier.Value((int)ApexGroupAge[i]);
-                    _senescenceDuration = SenescenceDuration * leafCohortParameters.SenescenceDurationAgeMultiplier.Value((int)ApexGroupAge[i]);
-                }
+                    if (i == 0)
+                    {
+                        _lagDuration = LagDuration;
+                        _senescenceDuration = SenescenceDuration;
+                    }
+                    else
+                    {
+                        _lagDuration = LagDuration * leafCohortParameters.LagDurationAgeMultiplier.Value((int)Apex.GroupAge[i]);
+                        _senescenceDuration = SenescenceDuration * leafCohortParameters.SenescenceDurationAgeMultiplier.Value((int)Apex.GroupAge[i]);
+                    }
 
-                if (Age >= 0 & Age < _lagDuration + GrowthDuration + _senescenceDuration / 2) 
-                {
-                    lsn += ApexGroupSize[i];
+                    if (Age >= 0 & Age < _lagDuration + GrowthDuration + _senescenceDuration / 2)
+                    {
+                        lsn += Apex.GroupSize[i];
+                    }
                 }
+                return lsn * CohortPopulation / MathUtilities.Sum(Apex.GroupSize);
             }
-            return lsn * CohortPopulation / MathUtilities.Sum(ApexGroupSize);           
         }
 
         /// <summary>Fractions the senescing.</summary>
@@ -1113,40 +1115,63 @@ namespace Models.PMF.Organs
             double _lagDuration;
             double _senescenceDuration;
             double fracSenAge = 0;
-            for (int i = 0; i < ApexGroupAge.Count; i++)
+            if (Apex != null && Apex.GroupAge.Length > 0)
             {
-                if (i == 0)
+                for (int i = 0; i < Apex.GroupAge.Length; i++)
                 {
-                    _lagDuration = LagDuration;
-                    _senescenceDuration = SenescenceDuration;
-                } else
-                {
-                    _lagDuration = LagDuration * leafCohortParameters.LagDurationAgeMultiplier.Value((int)ApexGroupAge[i]);
-                    _senescenceDuration = SenescenceDuration * leafCohortParameters.SenescenceDurationAgeMultiplier.Value((int)ApexGroupAge[i]);
+                    if (i == 0)
+                    {
+                        _lagDuration = LagDuration;
+                        _senescenceDuration = SenescenceDuration;
+                    }
+                    else
+                    {
+                        _lagDuration = LagDuration * leafCohortParameters.LagDurationAgeMultiplier.Value((int)Apex.GroupAge[i]);
+                        _senescenceDuration = SenescenceDuration * leafCohortParameters.SenescenceDurationAgeMultiplier.Value((int)Apex.GroupAge[i]);
+                    }
+
+                    double ttInSenPhase = Math.Max(0.0, Age + tt - _lagDuration - GrowthDuration);
+                    double _fracSenAge = 0;
+                    if (ttInSenPhase > 0)
+                    {
+                        double leafDuration = GrowthDuration + _lagDuration + _senescenceDuration;
+                        double remainingTt = Math.Max(0, leafDuration - Age);
+
+                        if (remainingTt == 0)
+                            _fracSenAge = 1;
+                        else
+                            _fracSenAge = Math.Min(1, Math.Min(tt, ttInSenPhase) / remainingTt);
+                        if ((_fracSenAge > 1) || (_fracSenAge < 0))
+                            throw new Exception("Bad Fraction Senescing");
+                    }
+                    else
+                    {
+                        _fracSenAge = 0;
+                    }
+
+                    fracSenAge += _fracSenAge * Apex.GroupSize[i];
                 }
-                
-                double ttInSenPhase = Math.Max(0.0, Age + tt - _lagDuration - GrowthDuration);
-                double _fracSenAge = 0;
+                fracSenAge = fracSenAge / Apex.GroupSize.Sum();
+            }
+            else
+            {
+                double ttInSenPhase = Math.Max(0.0, Age + tt - LagDuration - GrowthDuration);
                 if (ttInSenPhase > 0)
                 {
-                    double leafDuration = GrowthDuration + _lagDuration + _senescenceDuration;
+                    double leafDuration = GrowthDuration + LagDuration + SenescenceDuration;
                     double remainingTt = Math.Max(0, leafDuration - Age);
 
                     if (remainingTt == 0)
-                        _fracSenAge = 1;
+                        fracSenAge = 1;
                     else
-                        _fracSenAge = Math.Min(1, Math.Min(tt, ttInSenPhase) / remainingTt);
-                    if ((_fracSenAge > 1) || (_fracSenAge < 0))
+                        fracSenAge = Math.Min(1, Math.Min(tt, ttInSenPhase) / remainingTt);
+                    if ((fracSenAge > 1) || (fracSenAge < 0))
                         throw new Exception("Bad Fraction Senescing");
                 }
                 else
-                {
-                    _fracSenAge = 0;
-                }
-
-                fracSenAge += _fracSenAge * ApexGroupSize[i];
+                    fracSenAge = 0;
             }
-            fracSenAge = fracSenAge / ApexGroupSize.Sum();
+
             MaxLiveArea = Math.Max(MaxLiveArea, LiveArea);
             MaxCohortPopulation = Math.Max(MaxCohortPopulation, CohortPopulation);
 
@@ -1189,15 +1214,6 @@ namespace Models.PMF.Organs
             return fracDetach;
         }
 
-        /// <summary>Called when [do daily initialisation].</summary>
-        /// <param name="sender">The sender.</param>
-        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
-        [EventSubscribe("DoDailyInitialisation")]
-        private void OnDoDailyInitialisation(object sender, EventArgs e)
-        {
-            if (Plant.IsAlive)
-                DoDailyCleanup();
-        }
         #endregion
 
         /// <summary>Writes documentation for this function by adding to the list of documentation tags.</summary>

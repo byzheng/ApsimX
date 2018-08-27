@@ -12,6 +12,7 @@ namespace Models.Report
     using System.Data;
     using System.IO;
     using System.Linq;
+    using System.Xml.Serialization;
 
     /// <summary>
     /// A report class for writing output to the data store.
@@ -26,6 +27,7 @@ namespace Models.Report
     public class Report : Model
     {
         /// <summary>The columns to write to the data store.</summary>
+        [NonSerialized]
         private List<IReportColumn> columns = null;
 
         /// <summary>An array of column names to write to storage.</summary>
@@ -53,6 +55,12 @@ namespace Models.Report
         /// <summary>Link to an event service.</summary>
         [Link]
         private IEvent events = null;
+
+        /// <summary>
+        /// Temporarily stores which tab is currently displayed.
+        /// Meaningful only within the GUI
+        /// </summary>
+        [XmlIgnore] public int ActiveTabIndex = 0;
 
         /// <summary>Experiment factor names</summary>
         public List<string> ExperimentFactorNames { get; set; }
@@ -87,7 +95,18 @@ namespace Models.Report
             {
                 bool isDuplicate = StringUtilities.IndexOfCaseInsensitive(variableNames, this.VariableNames[i].Trim()) != -1;
                 if (!isDuplicate && this.VariableNames[i] != string.Empty)
-                    variableNames.Add(this.VariableNames[i].Trim());
+                {
+                    string variable = this.VariableNames[i];
+
+                    // If there is a comment in this line, ignore everything after (and including) the comment.
+                    int commentIndex = variable.IndexOf("//");
+                    if (commentIndex >= 0)
+                        variable = variable.Substring(0, commentIndex);
+
+                    // No need to add an empty variable
+                    if (!string.IsNullOrEmpty(variable))
+                        variableNames.Add(variable.Trim());
+                }
             }
             this.VariableNames = variableNames.ToArray();
             this.FindVariableMembers();
