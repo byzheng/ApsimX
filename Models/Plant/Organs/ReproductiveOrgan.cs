@@ -56,7 +56,7 @@ namespace Models.PMF.Organs
         public Biomass Removed { get; set; }
 
         /// <summary>The amount of mass lost each day from maintenance respiration</summary>
-        virtual public double MaintenanceRespiration { get { return 0; } set { } }
+        public double MaintenanceRespiration { get; set; }
 
         /// <summary>The dry matter demand</summary>
         public BiomassPoolType DMDemand { get; set; }
@@ -346,8 +346,9 @@ namespace Models.PMF.Organs
 
             //Do Maintenance respiration
             MaintenanceRespiration = 0;
-            if (MaintenanceRespirationFunction != null && (Live.MetabolicWt + Live.StorageWt) > 0)
+            if (MaintenanceRespirationFunction != null && (Live.MetabolicWt + Live.StorageWt + Live.StructuralWt) > 0)
             {
+                MaintenanceRespiration += Live.StructuralWt * MaintenanceRespirationFunction.Value();
                 MaintenanceRespiration += Live.MetabolicWt * MaintenanceRespirationFunction.Value();
                 MaintenanceRespiration += Live.StorageWt * MaintenanceRespirationFunction.Value();
             }
@@ -448,11 +449,12 @@ namespace Models.PMF.Organs
         /// <param name="respiration">The respiration to remove</param>
         public virtual void RemoveMaintenanceRespiration(double respiration)
         {
-            double total = Live.MetabolicWt + Live.StorageWt;
+            double total = Live.MetabolicWt + Live.StorageWt + Live.StructuralWt;
             if (respiration > total)
             {
                 throw new Exception("Respiration is more than total biomass of metabolic and storage in live component.");
             }
+            Live.StructuralWt = Live.StructuralWt - (respiration * Live.StructuralWt / total);
             Live.MetabolicWt = Live.MetabolicWt - (respiration * Live.MetabolicWt / total);
             Live.StorageWt = Live.StorageWt - (respiration * Live.StorageWt / total);
         }
