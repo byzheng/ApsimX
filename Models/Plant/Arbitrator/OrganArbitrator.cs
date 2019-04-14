@@ -84,7 +84,7 @@ namespace Models.PMF
                 double remainRespiration = respiration - total;
                 for (int i = 0; i < Organs.ToArray().Length; i++)
                 {
-                    if ((Organs[i].Live.StorageWt + Organs[i].Live.MetabolicWt) > 0)
+                    if ((Organs[i].Live.StorageWt + Organs[i].Live.MetabolicWt + Organs[i].Live.StructuralWt) > 0)
                     {
                         double organRespiration = remainRespiration * Organs[i].MaintenanceRespiration / respiration;
                         Organs[i].RemoveMaintenanceRespiration(organRespiration);
