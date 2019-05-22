@@ -532,11 +532,13 @@
                                 "View Cloud Jobs",
                                         new Gtk.Image(null, "ApsimNG.Resources.Cloud.png"),
                                         this.OnViewCloudJobs);
-            startPage.AddButton(
+            if (!ProcessUtilities.CurrentOS.IsLinux)
+            {
+                startPage.AddButton(
                                 "Toggle Theme",
-                                        new Gtk.Image(null, Configuration.Settings.DarkTheme ? "ApsimNG.Resources.MenuImages.Sun.png" : "ApsimNG.Resources.MenuImages.Moon.png"),
-                                        OnToggleTheme);
-
+                                new Gtk.Image(null, Configuration.Settings.DarkTheme ? "ApsimNG.Resources.MenuImages.Sun.png" : "ApsimNG.Resources.MenuImages.Moon.png"),
+                                OnToggleTheme);
+            }
             startPage.AddButton(
                                 "Help",
                                         new Gtk.Image(null, "ApsimNG.Resources.MenuImages.Help.png"),
@@ -948,28 +950,40 @@
         /// <param name="e">Event arguments.</param>
         private void OnImport(object sender, EventArgs e)
         {
-            string fileName = this.AskUserForOpenFileName("*.apsim|*.apsim");
-
-            APSIMImporter importer = new APSIMImporter();
             try
             {
+                string fileName = this.AskUserForOpenFileName("*.apsim|*.apsim");
                 this.view.ShowWaitCursor(true);
-                try
-                {
-                    importer.ProcessFile(fileName);
+                this.Import(fileName);
 
-                    string newFileName = Path.ChangeExtension(fileName, ".apsimx");
-                    bool onLeftTabControl = this.view.IsControlOnLeft(sender);
-                    this.OpenApsimXFileInTab(newFileName, onLeftTabControl);
-                }
-                finally
-                {
-                    this.view.ShowWaitCursor(false);
-                }
+                string newFileName = Path.ChangeExtension(fileName, ".apsimx");
+                this.OpenApsimXFileInTab(newFileName, this.view.IsControlOnLeft(sender));
             }
-            catch (Exception exp)
+            catch (Exception err)
             {
-                throw new Exception("Failed import: " + exp.Message);
+                ShowError(err);
+            }
+            finally
+            {
+                this.view.ShowWaitCursor(false);
+            }
+        }
+
+        /// <summary>
+        /// Runs the importer on a file, then opens it in a new tab.
+        /// </summary>
+        /// <param name="fileName">Path to the file to be imported.</param>
+        /// <param name="leftTab">Should the file be opened in the left tabset?</param>
+        public void Import(string fileName)
+        {
+            try
+            {
+                APSIMImporter importer = new APSIMImporter();
+                importer.ProcessFile(fileName);
+            }
+            catch (Exception err)
+            {
+                ShowError(err);
             }
         }
 
@@ -1096,6 +1110,9 @@
         {
             try
             {
+                if (fileConverter == null || fileConverter.Files == null)
+                    return;
+
                 // The file converter view has an option to automatically select the latest version.
                 // If the user has enabled this option, we will upgrade the file to the latest version. 
                 // Otherwise, we will upgrade to the version they have specified.

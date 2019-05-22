@@ -227,8 +227,14 @@
     <Compile Include="Core\Run\Runner.cs" />
     <Compile Include="Core\Run\SimulationDescription.cs" />
     <Compile Include="Core\ISimulationGenerator.cs" />
+    <Compile Include="Graph\DefaultPainter.cs" />
+    <Compile Include="Graph\ISeriesDefinitionPainter.cs" />
+    <Compile Include="Graph\MultiDescriptorPainter.cs" />
+    <Compile Include="Graph\SequentialPainter.cs" />
+    <Compile Include="Graph\SeriesDefinition.cs" />
     <Compile Include="Plant\Arbitrator\RetranslocateAvailableN.cs" />
     <Compile Include="Factorial\CompositeFactor.cs" />
+    <Compile Include="Plant\Phenology\Scales\Age.cs" />
     <Compile Include="Storage\WriteTableCommand.cs" />
     <Compile Include="Storage\DatabaseTableDetails.cs" />
     <Compile Include="Storage\IDataStore.cs" />
@@ -524,7 +530,7 @@
     <Compile Include="Functions\SubtractFunction.cs" />
     <Compile Include="Functions\SupplyFunctions\RUECO2Function.cs" />
     <Compile Include="Functions\SupplyFunctions\RUEModel.cs" />
-    <Compile Include="Functions\Variable.cs" />
+    <Compile Include="Functions\VariableReference.cs" />
     <Compile Include="Functions\WeightedTemperatureFunction.cs" />
     <Compile Include="Functions\XYPairs.cs" />
     <Compile Include="Plant\OilPalm\OilPalm.cs" />
