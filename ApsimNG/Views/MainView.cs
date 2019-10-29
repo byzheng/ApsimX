@@ -32,16 +32,9 @@
         private static string indexTabText = "Home";
 
         /// <summary>
-        /// Stores the size, in points, of the "default" base font
-        /// </summary>
-        private double defaultBaseSize;
-
-        /// <summary>
         /// Keeps track of whether or not the waiting cursor is being used.
         /// </summary>
         private bool waiting = false;
-
-        private double scrollSizeStep = 0.5;
 
         /// <summary>
         /// Number of buttons in the status panel.
@@ -146,12 +139,6 @@
             listButtonView1 = new ListButtonView(this);
             listButtonView1.ButtonsAreToolbar = true;
 
-            EventBox labelBox = new EventBox();
-            Label label = new Label("NOTE: This version of APSIM writes .apsimx files as JSON, not XML. These files cannot be opened with older versions of APSIM.");
-            labelBox.Add(label);
-            if (!Utility.Configuration.Settings.DarkTheme)
-                labelBox.ModifyBg(StateType.Normal, new Gdk.Color(0xff, 0xff, 0x00)); // yellow
-            vbox1.PackStart(labelBox, false, true, 0);
             vbox1.PackEnd(listButtonView1.MainWidget, true, true, 0);
             listButtonView2 = new ListButtonView(this);
             listButtonView2.ButtonsAreToolbar = true;
@@ -178,6 +165,12 @@
             stopButton.Image.Visible = true;
             stopButton.Clicked += OnStopClicked;
             window1.DeleteEvent += OnClosing;
+
+            if (ProcessUtilities.CurrentOS.IsWindows && Utility.Configuration.Settings.Font == null)
+            {
+                // Default font on Windows is Segoe UI. Will fallback to sans if unavailable.
+                Utility.Configuration.Settings.Font = Pango.FontDescription.FromString("Segoe UI 11");
+            }
 
             // Can't set font until widgets are initialised.
             if (Utility.Configuration.Settings.Font != null)
@@ -572,7 +565,7 @@
             get
             {
                 if (window1.GdkWindow != null)
-                    return window1.GdkWindow.State == Gdk.WindowState.Maximized;
+                    return (window1.GdkWindow.State & Gdk.WindowState.Maximized) == Gdk.WindowState.Maximized;
                 else
                     return false;
             }

@@ -19,7 +19,7 @@ namespace Models.CLEM.Resources
     [ValidParent(ParentType = typeof(Equipment))]
     [Description("This resource represents an equipment store type (e.g. Tractor, bore).")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/resources/equipment/equipmenttype.htm")]
+    [HelpUri(@"Content/Features/Resources/Equipment/Equipmenttype.htm")]
     public class EquipmentType : CLEMResourceTypeBase, IResourceWithTransactionType, IResourceType
     {
         /// <summary>
@@ -118,10 +118,9 @@ namespace Models.CLEM.Resources
                 ResourceTransaction details = new ResourceTransaction
                 {
                     Gain = addAmount,
-                    Activity = activity.Name,
-                    ActivityType = activity.GetType().Name,
+                    Activity = activity,
                     Reason = reason,
-                    ResourceType = this.Name
+                    ResourceType = this
                 };
                 LastTransaction = details;
                 TransactionEventArgs te = new TransactionEventArgs() { Transaction = details };
@@ -147,10 +146,9 @@ namespace Models.CLEM.Resources
             request.Provided = amountRemoved;
             ResourceTransaction details = new ResourceTransaction
             {
-                ResourceType = this.Name,
+                ResourceType = this,
                 Loss = amountRemoved,
-                Activity = request.ActivityModel.Name,
-                ActivityType = request.ActivityModel.GetType().Name,
+                Activity = request.ActivityModel,
                 Reason = request.Reason
             };
             LastTransaction = details;

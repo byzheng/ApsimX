@@ -12,6 +12,7 @@ using Models.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using Models.Core.Attributes;
 using Models.CLEM.Activities;
+using System.Globalization;
 
 // -----------------------------------------------------------------------
 // <copyright file="FileCrop.cs" company="APSIM Initiative">
@@ -40,7 +41,7 @@ namespace Models.CLEM
     [ValidParent(ParentType = typeof(ActivityFolder))]
     [Description("This model holds a crop data file from a APSIM SQLite database for the CLEM simulation.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/datareaders/cropsqlitedatareader.htm")]
+    [HelpUri(@"Content/Features/DataReaders/CropDataReaderSQLite.htm")]
     public class FileSQLiteCrop : CLEMModel, IFileCrop
     {
         private bool nitrogenColumnExists = false;
@@ -141,18 +142,6 @@ namespace Models.CLEM
                     {
                         return this.FileName;
                     }
-                }
-            }
-            set
-            {
-                Simulations simulations = Apsim.Parent(this, typeof(Simulations)) as Simulations;
-                if (simulations != null)
-                {
-                    this.FileName = PathUtilities.GetRelativePath(value, simulations.FileName);
-                }
-                else
-                {
-                    this.FileName = value;
                 }
             }
         }
@@ -263,7 +252,7 @@ namespace Models.CLEM
             nitrogenColumnExists = sQLiteReader.GetColumnNames(TableName).Contains(PercentNitrogenColumnName);
 
             // define SQL filter to load data
-            string sqlQuery = "SELECT " + YearColumnName + "," + MonthColumnName + "," + CropNameColumnName + "," + AmountColumnName + "" + (nitrogenColumnExists ? "," + PercentNitrogenColumnName : "") + " FROM " + TableName
+            string sqlQuery = "SELECT " + YearColumnName + "," + MonthColumnName + "," + CropNameColumnName + "," + SoilTypeColumnName + "," + AmountColumnName + "" + (nitrogenColumnExists ? "," + PercentNitrogenColumnName : "") + " FROM " + TableName
                 + " WHERE " + SoilTypeColumnName + " = '" + soilId + "'"
                 + " AND " + CropNameColumnName + " = '" + cropName + "'";
 
@@ -302,9 +291,9 @@ namespace Models.CLEM
                 results.DefaultView.Sort = "Year, Month";
 
                 // convert to list<CropDataType>
-                foreach (DataRow row in results.DefaultView)
+                foreach (DataRowView row in results.DefaultView)
                 {
-                    cropDetails.Add(DataRow2CropData(row));
+                    cropDetails.Add(DataRow2CropData(row.Row));
                 }
             }
 
@@ -315,21 +304,22 @@ namespace Models.CLEM
         {
             CropDataType cropdata = new CropDataType
             {
-                SoilNum = int.Parse(dr[SoilTypeColumnName].ToString()),
+                SoilNum = dr[SoilTypeColumnName].ToString(),
                 CropName = dr[CropNameColumnName].ToString(),
                 Year = int.Parse(dr[YearColumnName].ToString()),
                 Month = int.Parse(dr[MonthColumnName].ToString()),
-
                 AmtKg = double.Parse(dr[AmountColumnName].ToString())
             };
             if(nitrogenColumnExists)
             {
-                cropdata.Npct = double.Parse(dr[PercentNitrogenColumnName].ToString());
+                cropdata.Npct = double.Parse(dr[PercentNitrogenColumnName].ToString(), CultureInfo.InvariantCulture);
             }
             else
             {
                 cropdata.Npct = double.NaN;
             }
+            cropdata.HarvestDate = new DateTime(cropdata.Year, cropdata.Month, 1);
+
             return cropdata;
         }
 

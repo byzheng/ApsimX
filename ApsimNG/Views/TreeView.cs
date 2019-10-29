@@ -158,6 +158,8 @@ namespace UserInterface.Views
             TreeIter prevnode;
             if (path.Prev() && treemodel.GetIter(out prevnode, path))
                 treemodel.MoveBefore(node, prevnode);
+
+            treeview1.ScrollToCell(path, treeview1.Columns[0], false, 0, 0);
         }
 
         /// <summary>Moves the specified node down 1 position.</summary>
@@ -170,6 +172,8 @@ namespace UserInterface.Views
             path.Next();
             if (treemodel.GetIter(out nextnode, path))
                 treemodel.MoveAfter(node, nextnode);
+
+            treeview1.ScrollToCell(path, treeview1.Columns[0], false, 0, 0);
         }
 
         /// <summary>Renames the specified node path.</summary>
@@ -418,6 +422,7 @@ namespace UserInterface.Views
         {
             if (SelectedNodeChanged != null)
             {
+                treeview1.CursorChanged -= OnAfterSelect;
                 NodeSelectedArgs selectionChangedData = new NodeSelectedArgs();
                 selectionChangedData.OldNodePath = previouslySelectedNodePath;
                 TreePath selPath;
@@ -427,6 +432,7 @@ namespace UserInterface.Views
                 if (selectionChangedData.NewNodePath != selectionChangedData.OldNodePath)
                     SelectedNodeChanged.Invoke(this, selectionChangedData);
                 previouslySelectedNodePath = selectionChangedData.NewNodePath;
+                treeview1.CursorChanged += OnAfterSelect;
             }
         }
 

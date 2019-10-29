@@ -47,7 +47,7 @@
                     // Add a simulation descriptor.
                     simDescription.Descriptors.Add(new SimulationDescription.Descriptor("SimulationName", simulationName));
 
-                    // Add in simulation descriptors.
+                    // Don't need to add a folderName descriptor, as this will be added by the base simulation.
                     foreach (var simulationDescriptor in baseSimulation.GenerateSimulationDescriptions())
                     {
                         foreach (var descriptor in simulationDescriptor.Descriptors)
@@ -77,18 +77,28 @@
             List<List<CompositeFactor>> allValues = new List<List<CompositeFactor>>();
             if (Factors != null)
             {
+                foreach (CompositeFactor compositeFactor in Apsim.Children(Factors, typeof(CompositeFactor)))
+                {
+                    if (compositeFactor.Enabled)
+                        allValues.Add(new List<CompositeFactor>() { compositeFactor });
+                }
                 foreach (Factor factor in Factors.factors)
                 {
                     if (factor.Enabled)
-                        allValues.Add(factor.GetCompositeFactors());
+                        foreach (var compositeFactor in factor.GetCompositeFactors())
+                            allValues.Add(new List<CompositeFactor>() { compositeFactor });
                 }
-                var allCombinations = MathUtilities.AllCombinationsOf<CompositeFactor>(allValues.ToArray());
-
+                foreach (Permutation factor in Apsim.Children(Factors, typeof(Permutation)))
+                {
+                    if (factor.Enabled)
+                        allValues.AddRange(factor.GetPermutations());
+                }
+                
                 // Remove disabled simulations.
                 if (DisabledSimNames != null)
-                    allCombinations.RemoveAll(comb => DisabledSimNames.Contains(GetName(comb)));
+                    allValues.RemoveAll(comb => DisabledSimNames.Contains(GetName(comb)));
 
-                return allCombinations;
+                return allValues;
             }
             else
                 return null;
@@ -102,7 +112,12 @@
         private string GetName(List<CompositeFactor> factors)
         {
             string newName = Name;
-            factors.ForEach(factor => newName += factor.Parent.Name + factor.Name);
+            foreach (var factor in factors)
+            {
+                if (!(factor.Parent is Factors) && !(factor.Parent is Permutation) )
+                    newName += factor.Parent.Name;
+                newName += factor.Name;
+            }
             return newName;
         }
 

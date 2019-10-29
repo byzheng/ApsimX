@@ -12,6 +12,7 @@ using Models.CLEM.Resources;
 using Models.Core.Attributes;
 using Models.Core.Run;
 using Models.Storage;
+using System.Globalization;
 
 namespace Models.CLEM.Reporting
 {
@@ -26,7 +27,7 @@ namespace Models.CLEM.Reporting
     [ValidParent(ParentType = typeof(Folder))]
     [Description("This report automatically generates a current balance column for each CLEM Resource Type\nassociated with the CLEM Resource Groups specified (name only) in the variable list.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/reporting/pasturepooldetails.htm")]
+    [HelpUri(@"Content/Features/Reporting/PasturePoolDetails.htm")]
     public class ReportPasturePoolDetails: Models.Report.Report
     {
         [Link]
@@ -157,7 +158,7 @@ namespace Models.CLEM.Reporting
                 if (columns[i].Name.Contains("-"))
                 {
                     string[] values = columns[i].Name.Split('-');
-                    double value = grazeStore.GetValueByPoolAge(Convert.ToInt32(values[1]), values[2]);
+                    double value = grazeStore.GetValueByPoolAge(Convert.ToInt32(values[1], CultureInfo.InvariantCulture), values[2]);
                     if (value != 0)
                     {
                         valuesToWrite[i] = Math.Round(value, 2);

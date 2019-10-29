@@ -23,7 +23,7 @@ namespace Models.CLEM.Resources
     [Description("This resource represents a common land food store.")]
     [Version(1, 0, 1, "Beta build")]
     [Version(1, 0, 2, "Link to GrazeFoodStore implemented")]
-    [HelpUri(@"content/features/resources/animalfoodstore/commonlandstoretype.htm")]
+    [HelpUri(@"Content/Features/Resources/AnimalFoodStore/CommonLandStoreType.htm")]
     public class CommonLandFoodStoreType : CLEMResourceTypeBase, IResourceWithTransactionType, IValidatableObject, IResourceType
     {
         /// <summary>
@@ -281,10 +281,9 @@ namespace Models.CLEM.Resources
                 ResourceTransaction details = new ResourceTransaction
                 {
                     Gain = pool.Amount,
-                    Activity = activity.Name,
-                    ActivityType = activity.GetType().Name,
+                    Activity = activity,
                     Reason = reason,
-                    ResourceType = this.Name
+                    ResourceType = this
                 };
                 LastTransaction = details;
                 TransactionEventArgs te = new TransactionEventArgs() { Transaction = details };
@@ -327,10 +326,9 @@ namespace Models.CLEM.Resources
             // report 
             ResourceTransaction details = new ResourceTransaction
             {
-                ResourceType = this.Name,
+                ResourceType = this,
                 Loss = request.Provided,
-                Activity = request.ActivityModel.Name,
-                ActivityType = request.ActivityModel.GetType().Name,
+                Activity = request.ActivityModel,
                 Reason = request.Reason
             };
             LastTransaction = details;

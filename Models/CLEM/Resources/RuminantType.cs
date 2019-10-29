@@ -21,7 +21,7 @@ namespace Models.CLEM.Resources
     [Version(1, 0, 3, "Added parameter for proportion offspring that are male")]
     [Version(1, 0, 2, "All conception parameters moved to associated conception components")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/resources/ruminants/ruminanttype.htm")]
+    [HelpUri(@"Content/Features/Resources/Ruminants/RuminantType.htm")]
     public class RuminantType : CLEMResourceTypeBase, IValidatableObject, IResourceType
     {
         [Link]
@@ -99,7 +99,13 @@ namespace Models.CLEM.Resources
                     }
                 }
                 // no price match found.
-                Summary.WriteWarning(this, "No "+purchaseStyle.ToString()+" price entry was found for indiviudal [" + ind.ID + "] with details ([f=age: " + ind.Age + "] [f=herd: " + ind.HerdName + "] [f=gender: " + ind.GenderAsString + "] [f=weight: " + ind.Weight + "])");
+                string warning = "No " + purchaseStyle.ToString() + " price entry was found for indiviudal [" + ind.ID + "] with details ([f=age: " + ind.Age + "] [f=herd: " + ind.HerdName + "] [f=gender: " + ind.GenderAsString + "] [f=weight: " + ind.Weight.ToString("##0.##") + "])";
+                if (!Warnings.Exists(warning))
+                {
+                    Warnings.Add(warning);
+                    Summary.WriteWarning(this, warning);
+                }
+//                Summary.WriteWarning(this, "No "+purchaseStyle.ToString()+" price entry was found for indiviudal [" + ind.ID + "] with details ([f=age: " + ind.Age + "] [f=herd: " + ind.HerdName + "] [f=gender: " + ind.GenderAsString + "] [f=weight: " + ind.Weight + "])");
             }
             return 0;
         }
@@ -158,7 +164,7 @@ namespace Models.CLEM.Resources
                     }
                     else
                     {
-                        Summary.WriteWarning(this, "\nNo alternate price for individuals could be found for the individuals. Add a new [r=AnimalPriceGroup] entry in the [r=AnimalPricing] for ["+ind.Breed+"]");
+                        warningString += "\nNo alternate price for individuals could be found for the individuals. Add a new [r=AnimalPriceGroup] entry in the [r=AnimalPricing] for [" +ind.Breed+"]";
                     }
                     if (!WarningsNotFound.Contains(criteria))
                     {
@@ -256,6 +262,21 @@ namespace Models.CLEM.Resources
                 if (Resources.RuminantHerd().Herd != null)
                 {
                     return Resources.RuminantHerd().Herd.Where(a => a.HerdName == this.Name).Count();
+                }
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Current number of individuals of this herd.
+        /// </summary>
+        public double AmountAE
+        {
+            get
+            {
+                if (Resources.RuminantHerd().Herd != null)
+                {
+                    return Resources.RuminantHerd().Herd.Where(a => a.HerdName == this.Name).Sum(a => a.AdultEquivalent);
                 }
                 return 0;
             }
@@ -410,14 +431,14 @@ namespace Models.CLEM.Resources
         [Required, GreaterThanValue(0)]
         public double SRWGrowthScalar { get; set; }
         /// <summary>
-        /// Intake coefficient in relation to Live Weight
+        /// Intake coefficient in relation to live weight
         /// </summary>
         [Category("Advanced", "Diet")]
         [Description("Intake coefficient in relation to Live Weight")]
         [Required, GreaterThanValue(0)]
         public double IntakeCoefficient { get; set; }
         /// <summary>
-        /// Intake intercept In relation to SRW
+        /// Intake intercept in relation to live weight
         /// </summary>
         [Category("Advanced", "Diet")]
         [Description("Intake intercept in relation to SRW")]
@@ -490,7 +511,7 @@ namespace Models.CLEM.Resources
         /// <summary>
         /// Enforce strict feeding limits
         /// </summary>
-        [Category("Advanced", "Diet")]
+        [Category("Basic", "Diet")]
         [Description("Enforce strict feeding limits")]
         [Required]
         public bool StrictFeedingLimits { get; set; }
@@ -722,6 +743,14 @@ namespace Models.CLEM.Resources
         [Description("Minimum age for 1st mating (months)")]
         [Required, GreaterThanValue(0)]
         public double MinimumAge1stMating { get; set; }
+        /// <summary>
+        /// Maximum age for mating (months)
+        /// </summary>
+        [Category("Basic", "Breeding")]
+        [Description("Maximum female age for mating")]
+        [Required, GreaterThanValue(0)]
+        [System.ComponentModel.DefaultValue(120)]
+        public double MaximumAgeMating { get; set; }
         /// <summary>
         /// Minimum size for 1st mating, proportion of SRW
         /// </summary>

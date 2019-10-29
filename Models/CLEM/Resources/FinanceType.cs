@@ -18,7 +18,7 @@ namespace Models.CLEM.Resources
     [ValidParent(ParentType = typeof(Finance))]
     [Description("This resource represents a finance type (e.g. General bank account).")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/resources/finance/financetype.htm")]
+    [HelpUri(@"Content/Features/Resources/Finance/FinanceType.htm")]
     public class FinanceType : CLEMResourceTypeBase, IResourceWithTransactionType, IResourceType
     {
         /// <summary>
@@ -153,10 +153,9 @@ namespace Models.CLEM.Resources
                 ResourceTransaction details = new ResourceTransaction
                 {
                     Gain = addAmount,
-                    Activity = activity.Name,
-                    ActivityType = activity.GetType().Name,
+                    Activity = activity,
                     Reason = reason,
-                    ResourceType = this.Name
+                    ResourceType = this
                 };
                 LastTransaction = details;
                 TransactionEventArgs te = new TransactionEventArgs() { Transaction = details };
@@ -176,8 +175,15 @@ namespace Models.CLEM.Resources
             }
 
             double amountRemoved = Math.Round(request.Required, 2, MidpointRounding.ToEven); 
+            
+            // more than positive balance can be taken if withdrawal limit set to false
+            if(this.EnforceWithdrawalLimit)
+            {
+                amountRemoved = Math.Min(amountRemoved, FundsAvailable);
+            }
+
             // avoid taking too much
-            amountRemoved = Math.Min(this.Amount, amountRemoved);
+            //amountRemoved = Math.Min(this.Amount, amountRemoved);
             if (amountRemoved == 0)
             {
                 return;
@@ -188,10 +194,9 @@ namespace Models.CLEM.Resources
             request.Provided = amountRemoved;
             ResourceTransaction details = new ResourceTransaction
             {
-                ResourceType = this.Name,
+                ResourceType = this,
                 Loss = amountRemoved,
-                Activity = request.ActivityModel.Name,
-                ActivityType = request.ActivityModel.GetType().Name,
+                Activity = request.ActivityModel,
                 Reason = request.Reason
             };
             LastTransaction = details;

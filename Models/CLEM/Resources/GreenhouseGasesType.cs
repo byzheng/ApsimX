@@ -19,7 +19,7 @@ namespace Models.CLEM.Resources
     [ValidParent(ParentType = typeof(GreenhouseGases))]
     [Description("This resource represents a greenhouse gas (e.g. CO2).")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/resources/greenhouse gases/greenhousegastype.htm")]
+    [HelpUri(@"Content/Features/Resources/Greenhouse gases/GreenhouseGasType.htm")]
     public class GreenhouseGasesType : CLEMResourceTypeBase, IResourceWithTransactionType, IResourceType
     {
         /// <summary>
@@ -41,20 +41,6 @@ namespace Models.CLEM.Resources
         public double Amount { get { return amount; } }
         private double amount { get { return roundedAmount; } set { roundedAmount = Math.Round(value, 9); } }
         private double roundedAmount;
-
-        /// <summary>
-        /// Global warming potential
-        /// </summary>
-        [Description("Global warming potential")]
-        [Required, GreaterThanEqualValue(0)]
-        public double GlobalWarmingPotential { get; set; }
-
-        /// <summary>
-        /// CO2 equivalents
-        /// </summary>
-        [XmlIgnore]
-        public double CO2Equivalents { get { return Amount * GlobalWarmingPotential; } }
-
 
         /// <summary>An event handler to allow us to initialise ourselves.</summary>
         /// <param name="sender">The sender.</param>
@@ -111,11 +97,9 @@ namespace Models.CLEM.Resources
                 ResourceTransaction details = new ResourceTransaction
                 {
                     Gain = addAmount,
-                    GainStandardised = addAmount * GlobalWarmingPotential,
-                    Activity = activity.Name,
-                    ActivityType = activity.GetType().Name,
+                    Activity = activity,
                     Reason = reason,
-                    ResourceType = this.Name
+                    ResourceType = this
                 };
                 LastTransaction = details;
                 TransactionEventArgs te = new TransactionEventArgs() { Transaction = details };
@@ -141,11 +125,9 @@ namespace Models.CLEM.Resources
             request.Provided = amountRemoved;
             ResourceTransaction details = new ResourceTransaction
             {
-                ResourceType = this.Name,
+                ResourceType = this,
                 Loss = amountRemoved,
-                LossStandardised = amountRemoved * GlobalWarmingPotential,
-                Activity = request.ActivityModel.Name,
-                ActivityType = request.ActivityModel.GetType().Name,
+                Activity = request.ActivityModel,
                 Reason = request.Reason
             };
             LastTransaction = details;
@@ -175,8 +157,8 @@ namespace Models.CLEM.Resources
             html += "<div class=\"activityentry\">";
             html += "There is a starting amount of <span class=\"setvalue\">" + this.StartingAmount.ToString("0.#") + "</span>";
             html += "</div>";
-            html += "One unit of this is equivalent to <span class=\"setvalue\">" + this.GlobalWarmingPotential.ToString("0.#####") + "</span> CO<sub>2</sub>";
-            html += "</div>";
+            // the following line seems unneeded but may be part of wrapping divs
+            //            html += "</div>";
             return html;
         }
 

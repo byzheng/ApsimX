@@ -53,9 +53,7 @@ namespace Models.PMF
         [Link(IsOptional = true)]
         public Biomass AboveGround { get; set; }
 
-        /// <summary>
-        /// Clock
-        /// </summary>
+       /// <summary> Clock </summary>
         [Link]
         public Clock Clock = null;
 

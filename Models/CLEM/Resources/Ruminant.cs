@@ -222,6 +222,12 @@ namespace Models.CLEM.Resources
         public double PotentialIntake { get; set; }
 
         /// <summary>
+        /// Current monthly metabolic intake after crude protein adjustment
+        /// </summary>
+        /// <units>kg/month</units>
+        public double MetabolicIntake { get; set; }
+
+        /// <summary>
         /// Number in this class (1 if individual model)
         /// </summary>
         public double Number { get; set; }
@@ -413,7 +419,8 @@ namespace Models.CLEM.Resources
                     if (this.Location == this.Mother.Location)
                     {
                         // distribute milk between offspring
-                        milk = this.Mother.MilkProduction / this.Mother.CarryingCount;
+                        int offspring = (this.Mother.SucklingOffspringList.Count <= 1) ? 1 : this.Mother.SucklingOffspringList.Count;
+                        milk = this.Mother.MilkProduction / offspring;
                     }
                 }
                 return milk;

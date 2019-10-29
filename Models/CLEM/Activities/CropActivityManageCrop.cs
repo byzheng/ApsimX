@@ -22,7 +22,7 @@ namespace Models.CLEM.Activities
     [Description("This activity manages a crop by assigning land to be used for child activities.")]
     [Version(1, 0, 1, "Beta build")]
     [Version(1, 0, 2, "Rotational cropping implemented")]
-    [HelpUri(@"content/features/activities/crop/managecrop.htm")]
+    [HelpUri(@"Content/Features/Activities/Crop/ManageCrop.htm")]
     public class CropActivityManageCrop: CLEMActivityBase, IValidatableObject, IPastureManager
     {
         [Link]
@@ -286,9 +286,13 @@ namespace Models.CLEM.Activities
             html += "\n<div class=\"activityentry\">This crop uses ";
 
             Land parentLand = null;
+            IModel clemParent = Apsim.Parent(this, typeof(ZoneCLEM));
             if(LandItemNameToUse != null && LandItemNameToUse != "")
             {
-                parentLand = Apsim.Find(this, LandItemNameToUse.Split('.')[0]) as Land;
+                if (clemParent != null && clemParent.Enabled)
+                {
+                    parentLand = Apsim.Find(clemParent, LandItemNameToUse.Split('.')[0]) as Land;
+                }
             }
 
             if(UseAreaAvailable)

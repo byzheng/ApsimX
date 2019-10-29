@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using Models.CLEM.Groupings;
 using Models.Core.Attributes;
 using Models.CLEM.Reporting;
+using System.Globalization;
 
 namespace Models.CLEM.Activities
 {
@@ -22,7 +23,7 @@ namespace Models.CLEM.Activities
     [ValidParent(ParentType = typeof(ActivityFolder))]
     [Description("This activity manages weaning of suckling ruminant individuals.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/activities/ruminant/ruminantwean.htm")]
+    [HelpUri(@"Content/Features/Activities/Ruminant/RuminantWean.htm")]
     public class RuminantActivityWean: CLEMRuminantActivityBase
     {
         /// <summary>
@@ -86,7 +87,10 @@ namespace Models.CLEM.Activities
         [EventSubscribe("CLEMAnimalManage")]
         private void OnCLEMAnimalManage(object sender, EventArgs e)
         {
-            // if management month
+            // Weaning is performed in the Management event to ensure weaned individuals are treated as unweaned for their intake calculations
+            // and the mother is considered lactating for lactation energy demands otherwise IsLactating stops as soon as ind.wean() is performed.
+
+            // if wean month
             if (this.TimingOK)
             {
                 double labourlimit = this.LabourLimitProportion;
@@ -102,15 +106,25 @@ namespace Models.CLEM.Activities
                         ind.Wean(true, reason);
                         ind.Location = grazeStore;
                         weanedCount++;
-                        Status = ActivityStatus.Success;
                     }
 
                     // stop if labour limited individuals reached and LabourShortfallAffectsActivity
-                    if (weanedCount > Convert.ToInt32(count * labourlimit))
+                    if (weanedCount > Convert.ToInt32(count * labourlimit, CultureInfo.InvariantCulture))
                     {
+                        this.Status = ActivityStatus.Partial;
                         break;
                     }
                 }
+
+                if(weanedCount > 0)
+                {
+                    SetStatusSuccess();
+                }
+                else
+                {
+                    this.Status = ActivityStatus.NotNeeded;
+                }
+
             }
         }
 
@@ -162,7 +176,6 @@ namespace Models.CLEM.Activities
         /// </summary>
         public override void DoActivity()
         {
-            Status = ActivityStatus.NotNeeded;
             return;
         }
 

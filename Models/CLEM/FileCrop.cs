@@ -12,6 +12,7 @@ using Models.Interfaces;
 using System.ComponentModel.DataAnnotations;
 using Models.Core.Attributes;
 using Models.CLEM.Activities;
+using System.Globalization;
 
 // -----------------------------------------------------------------------
 // <copyright file="FileCrop.cs" company="APSIM Initiative">
@@ -34,7 +35,7 @@ namespace Models.CLEM
     [ValidParent(ParentType = typeof(ActivityFolder))]
     [Description("This model holds a crop data file for the CLEM simulation.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/datareaders/cropdatareader.htm")]
+    [HelpUri(@"Content/Features/DataReaders/CropDataReader.htm")]
     public class FileCrop : CLEMModel, IFileCrop
     {
         /// <summary>
@@ -111,18 +112,6 @@ namespace Models.CLEM
                     {
                         return this.FileName;
                     }
-                }
-            }
-            set
-            {
-                Simulations simulations = Apsim.Parent(this, typeof(Simulations)) as Simulations;
-                if (simulations != null)
-                {
-                    this.FileName = PathUtilities.GetRelativePath(value, simulations.FileName);
-                }
-                else
-                {
-                    this.FileName = value;
                 }
             }
         }
@@ -301,18 +290,18 @@ namespace Models.CLEM
         {
             CropDataType cropdata = new CropDataType
             {
-                SoilNum = int.Parse(dr["SoilNum"].ToString()),
+                SoilNum = dr["SoilNum"].ToString(),
                 CropName = dr["CropName"].ToString(),
                 Year = int.Parse(dr["Year"].ToString()),
                 Month = int.Parse(dr["Month"].ToString()),
-                AmtKg = double.Parse(dr["AmtKg"].ToString())
+                AmtKg = double.Parse(dr["AmtKg"].ToString(), CultureInfo.InvariantCulture)
             };
 
             //Npct column is optional 
             //Only try to read it in if it exists in the file.
             if (nitrogenPercentIndex != -1)
             {
-                cropdata.Npct = double.Parse(dr["Npct"].ToString());
+                cropdata.Npct = double.Parse(dr["Npct"].ToString(), CultureInfo.InvariantCulture);
             }
             else
             {
@@ -336,6 +325,11 @@ namespace Models.CLEM
                 {
                     this.reader = new ApsimTextFile();
                     this.reader.Open(this.FullFileName, this.ExcelWorkSheetName);
+
+                    if(this.reader.Headings == null)
+                    {
+                        throw new Exception("@error:Invalid format of datafile [x=" + this.FullFileName.Replace("\\", "\\&shy;") + "]\nExpecting Header row followed by units row in brackets.\nHeading1      Heading2      Heading3\n( )         ( )        ( )");
+                    }
 
                     this.soilNumIndex = StringUtilities.IndexOfCaseInsensitive(this.reader.Headings, "SoilNum");
                     this.cropNameIndex = StringUtilities.IndexOfCaseInsensitive(this.reader.Headings, "CropName");
@@ -444,7 +438,7 @@ namespace Models.CLEM
         /// <summary>
         /// Soil Number
         /// </summary>
-        public int SoilNum;
+        public string SoilNum;
 
         /// <summary>
         /// Name of Crop

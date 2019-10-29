@@ -401,6 +401,10 @@ namespace Models
         /// </summary>
         public double Depth { get { return height; } }
 
+        /// <summary>Gets the width of the canopy (mm).</summary>
+        public double Width { get { return 0; } }
+
+
         /// <summary>
         /// Gets  FRGR.
         /// </summary>
@@ -13241,8 +13245,7 @@ namespace Models
 
             //!       sugar_sw_supply
 
-            ISoilCrop ISugarcane = Soil.Crop("Sugarcane");
-            SoilCrop Sugarcane = (SoilCrop)ISugarcane; //don't need to use As keyword because Soil.Crop() will throw the exception if not found
+            SoilCrop Sugarcane = Soil.Crop("Sugarcane");
 
             xf = Sugarcane.XF;
             ll = Sugarcane.LL;

@@ -23,7 +23,7 @@ namespace Models.CLEM.Activities
     [ValidParent(ParentType = typeof(ActivityFolder))]
     [Description("This activity manages a pasture by allocating land, tracking pasture state and ecological indicators and communicating with the GRASP data file.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/activities/pasture/managepasture.htm")]
+    [HelpUri(@"Content/Features/Activities/Pasture/ManagePasture.htm")]
     public class PastureActivityManage: CLEMActivityBase, IValidatableObject, IPastureManager
     {
         [Link]
@@ -261,9 +261,12 @@ namespace Models.CLEM.Activities
                 this.Status = ActivityStatus.NotNeeded;
                 double growth = 0;
 
-                // method is performed on last day of month but needs to work with next month's details
-                int year = Clock.Today.AddDays(1).Year;
-                int month = Clock.Today.AddDays(1).Month;
+                //// method is performed on last day of month but needs to work with next month's details
+                //int year = Clock.Today.AddDays(1).Year;
+                //int month = Clock.Today.AddDays(1).Month;
+
+                int year = Clock.Today.Year;
+                int month = Clock.Today.Month;
 
                 //Get this months pasture data from the pasture data list
                 PastureDataType pasturedata = PastureDataList.Where(a => a.Year == year && a.Month == month).FirstOrDefault();
@@ -282,7 +285,8 @@ namespace Models.CLEM.Activities
                     {
                         Age = 0
                     };
-                    newPasture.Set(growth * Area);  
+                    newPasture.Set(growth * Area);
+                    newPasture.Growth = growth * Area;
                     newPasture.Nitrogen = this.LinkedNativeFoodType.GreenNitrogen; 
                     newPasture.DMD = newPasture.Nitrogen * LinkedNativeFoodType.NToDMDCoefficient + LinkedNativeFoodType.NToDMDIntercept;
                     newPasture.DMD = Math.Min(100,Math.Max(LinkedNativeFoodType.MinimumDMD, newPasture.DMD));
@@ -292,7 +296,7 @@ namespace Models.CLEM.Activities
             else
             {
                 this.Status = ActivityStatus.Critical;
-                throw new Exception("No pasture data");
+                throw new Exception("No pasture data is available for [a="+this.Name+"]\nCheck that data is available for specified soil id etc. ");
             }
 
             // report activity performed.
@@ -341,6 +345,27 @@ namespace Models.CLEM.Activities
         }
 
         /// <summary>
+        /// Function to detach pasture before reporting
+        /// </summary>
+        /// <param name="sender">The sender.</param>
+        /// <param name="e">The <see cref="EventArgs"/> instance containing the event data.</param>
+        [EventSubscribe("CLEMDetachPasture")]
+        private void OnCLEMDetachPasture(object sender, EventArgs e)
+        {
+            foreach (var pool in LinkedNativeFoodType.Pools)
+            {
+                double detach = LinkedNativeFoodType.CarryoverDetachRate;
+                if (pool.Age < 12)
+                {
+                    detach = LinkedNativeFoodType.DetachRate;
+                }
+                double detachedAmount = pool.Amount * (1 - detach);
+                pool.Detached = pool.Amount * detach;
+                pool.Set(detachedAmount);
+            }
+        }
+
+        /// <summary>
         /// Function to age resource pools
         /// </summary>
         /// <param name="sender">The sender.</param>
@@ -356,18 +381,11 @@ namespace Models.CLEM.Activities
                 // DMD is a proportional loss (x = x*(1-proploss))
                 pool.DMD = Math.Max(pool.DMD * (1 - LinkedNativeFoodType.DecayDMD), LinkedNativeFoodType.MinimumDMD);
 
-                double detach = LinkedNativeFoodType.CarryoverDetachRate;
                 if (pool.Age < 12)
                 {
-                    detach = LinkedNativeFoodType.DetachRate;
                     pool.Age++;
                 }
-                pool.Growth = 0;
-                double detachedAmount = pool.Amount * (1 - detach);
-                pool.Set(detachedAmount);
-                pool.Detached = detachedAmount;
             }
-
             // remove all pools with less than 10g of food
             LinkedNativeFoodType.Pools.RemoveAll(a => a.Amount < 0.01);
         }
@@ -437,15 +455,18 @@ namespace Models.CLEM.Activities
             // But as updates happen at the end of the month, the fist months biomass is never added so stay with 0 or delete following section
             // Get this months growth
             // Get this months pasture data from the pasture data list
-            PastureDataType pasturedata = PastureDataList.Where(a => a.Year == Clock.StartDate.Year && a.Month == Clock.StartDate.Month).FirstOrDefault();
-
-            double thisMonthsGrowth = pasturedata.Growth;
-            if (thisMonthsGrowth > 0)
+            if (PastureDataList != null)
             {
-                GrazeFoodStorePool thisMonth = newPools.Where(a => a.Age == 0).FirstOrDefault() as GrazeFoodStorePool;
-                if (thisMonth != null)
+                PastureDataType pasturedata = PastureDataList.Where(a => a.Year == Clock.StartDate.Year && a.Month == Clock.StartDate.Month).FirstOrDefault();
+
+                double thisMonthsGrowth = pasturedata.Growth * Area;
+                if (thisMonthsGrowth > 0)
                 {
-                    thisMonth.Set(Math.Max(0, thisMonth.Amount - thisMonthsGrowth));
+                    GrazeFoodStorePool thisMonth = newPools.Where(a => a.Age == 0).FirstOrDefault() as GrazeFoodStorePool;
+                    if (thisMonth != null)
+                    {
+                        thisMonth.Set(Math.Max(0, thisMonth.Amount - thisMonthsGrowth));
+                    }
                 }
             }
 
@@ -465,7 +486,12 @@ namespace Models.CLEM.Activities
         {
             if (Resources.RuminantHerd() != null)
             {
-                return Resources.RuminantHerd().Herd.Where(a => a.Location == FeedTypeName).Sum(a => a.AdultEquivalent) / (Area * unitsOfArea2Ha * ha2sqkm);
+                string paddock = FeedTypeName;
+                if(paddock.Contains("."))
+                {
+                    paddock = paddock.Substring(paddock.IndexOf(".")+1);
+                }
+                return Resources.RuminantHerd().Herd.Where(a => a.Location == paddock).Sum(a => a.AdultEquivalent) / (Area * unitsOfArea2Ha * ha2sqkm);
             }
             else
             {
@@ -492,7 +518,7 @@ namespace Models.CLEM.Activities
 
                 // Calculate average monthly stocking rate
                 // Check number of months to use
-                int monthdiff = ((ZoneCLEM.EcologicalIndicatorsNextDueDate.Year - Clock.StartDate.Year) * 12) + ZoneCLEM.EcologicalIndicatorsNextDueDate.Month - Clock.StartDate.Month;
+                int monthdiff = ((ZoneCLEM.EcologicalIndicatorsNextDueDate.Year - Clock.StartDate.Year) * 12) + ZoneCLEM.EcologicalIndicatorsNextDueDate.Month - Clock.StartDate.Month+1;
                 if (monthdiff >= ZoneCLEM.EcologicalIndicatorsCalculationInterval)
                 {
                     monthdiff = ZoneCLEM.EcologicalIndicatorsCalculationInterval;

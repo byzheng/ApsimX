@@ -26,7 +26,7 @@ namespace Models.CLEM.Reporting
     [ValidParent(ParentType = typeof(Folder))]
     [Description("This report automatically generates a current balance column for each CLEM Resource Type\nassociated with the CLEM Resource Groups specified (name only) in the variable list.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/reporting/resourcebalances.htm")]
+    [HelpUri(@"Content/Features/Reporting/ResourceBalances.htm")]
     public class ReportResourceBalances: Models.Report.Report
     {
         [Link]
@@ -123,8 +123,14 @@ namespace Models.CLEM.Reporting
                                                 break;
                                         }
                                         variableNames.Add("[Resources]." + this.VariableNames[i] + "." + item.Name + "." + amountStr + " as " + item.Name);
+                                        if(item.GetType().Name == "RuminantType")
+                                        {
+                                            variableNames.Add("[Resources]." + this.VariableNames[i] + "." + item.Name + ".AmountAE as TotalAE");
+                                        }
                                     }
                                 }
+
+
                             }
                         }
                     }

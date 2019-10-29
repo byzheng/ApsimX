@@ -19,7 +19,7 @@ namespace Models.CLEM.Resources
     [ValidParent(ParentType = typeof(AnimalFoodStore))]
     [Description("This resource represents an animal food store (e.g. Lucerne).")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/resources/animalfoodstore/animalfoodstoretype.htm")]
+    [HelpUri(@"Content/Features/Resources/AnimalFoodStore/AnimalFoodStoreType.htm")]
     public class AnimalFoodStoreType : CLEMResourceTypeBase, IResourceWithTransactionType, IFeedType, IResourceType
     {
         /// <summary>
@@ -118,10 +118,9 @@ namespace Models.CLEM.Resources
             ResourceTransaction details = new ResourceTransaction
             {
                 Gain = addAmount,
-                Activity = activity.Name,
-                ActivityType = activity.GetType().Name,
+                Activity = activity,
                 Reason = reason,
-                ResourceType = this.Name
+                ResourceType = this
             };
             LastTransaction = details;
             TransactionEventArgs te = new TransactionEventArgs() { Transaction = details };
@@ -154,10 +153,9 @@ namespace Models.CLEM.Resources
             request.Provided = amountRemoved;
             ResourceTransaction details = new ResourceTransaction
             {
-                ResourceType = this.Name,
+                ResourceType = this,
                 Loss = amountRemoved,
-                Activity = request.ActivityModel.Name,
-                ActivityType = request.ActivityModel.GetType().Name,
+                Activity = request.ActivityModel,
                 Reason = request.Reason
             };
             LastTransaction = details;

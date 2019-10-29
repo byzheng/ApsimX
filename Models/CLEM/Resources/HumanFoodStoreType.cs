@@ -20,7 +20,7 @@ namespace Models.CLEM.Resources
     [ValidParent(ParentType = typeof(HumanFoodStore))]
     [Description("This resource represents a human food store (e.g. Eggs).")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/resources/human food store/humanfoodstoretype.htm")]
+    [HelpUri(@"Content/Features/Resources/Human food store/HumanFoodStoreType.htm")]
     public class HumanFoodStoreType : CLEMResourceTypeBase, IResourceWithTransactionType, IResourceType
     {
         /// <summary>
@@ -66,11 +66,18 @@ namespace Models.CLEM.Resources
         public double StartingAge { get; set; }
 
         /// <summary>
-        /// Starting Amount (kg)
+        /// Starting Amount
         /// </summary>
-        [Description("Starting Amount (kg)")]
+        [Description("Starting Amount")]
         [Required, GreaterThanEqualValue(0)]
         public double StartingAmount { get; set; }
+
+        /// <summary>
+        /// The maximum amount of this food that can be eaten by an adult equivalent in a day
+        /// </summary>
+        [Description("Maximum daily intake per AE")]
+        [Required, GreaterThanEqualValue(0)]
+        public double MaximumDailyIntakePerAE { get; set; }
 
         /// <summary>
         /// Age of this Human Food (Months)
@@ -133,10 +140,9 @@ namespace Models.CLEM.Resources
             ResourceTransaction details = new ResourceTransaction
             {
                 Gain = addAmount,
-                Activity = activity.Name,
-                ActivityType = activity.GetType().Name,
+                Activity = activity,
                 Reason = reason,
-                ResourceType = this.Name
+                ResourceType = this
             };
             LastTransaction = details;
             TransactionEventArgs te = new TransactionEventArgs() { Transaction = details };
@@ -162,10 +168,9 @@ namespace Models.CLEM.Resources
             request.Provided = amountRemoved;
             ResourceTransaction details = new ResourceTransaction
             {
-                ResourceType = this.Name,
+                ResourceType = this,
                 Loss = amountRemoved,
-                Activity = request.ActivityModel.Name,
-                ActivityType = request.ActivityModel.GetType().Name,
+                Activity = request.ActivityModel,
                 Reason = request.Reason
             };
             LastTransaction = details;

@@ -1,10 +1,12 @@
 ﻿namespace Models.Storage
 {
+    using APSIM.Shared.JobRunning;
     using APSIM.Shared.Utilities;
     using Models.Core;
     using System;
     using System.Collections.Generic;
     using System.Data;
+    using System.Globalization;
     using System.Linq;
     using System.Threading;
 
@@ -23,7 +25,7 @@
         private IRunnable sleepJob = new JobRunnerSleepJob();
 
         /// <summary>The runner used to run commands on a worker thread.</summary>
-        private IJobRunner commandRunner;
+        private JobRunner commandRunner;
 
         /// <summary>Are we idle i.e. not writing to database?</summary>
         private bool idle = true;
@@ -32,7 +34,7 @@
         private bool somethingHasBeenWriten = false;
 
         /// <summary>The IDS for all simulations</summary>
-        private Dictionary<string, int> simulationIDs = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private Dictionary<string, SimulationDetails> simulationIDs = new Dictionary<string, SimulationDetails>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>The IDs for all checkpoints</summary>
         private Dictionary<string, int> checkpointIDs = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
@@ -45,7 +47,10 @@
 
         /// <summary>A list of names of tables that don't have checkpointid or simulatoinid columns.</summary>
         private static string[] tablesNotNeedingIndexColumns = new string[] { "_Simulations", "_Checkpoints", "_Units" };
-        
+
+        /// <summary>Are we stopping writing to the db?</summary>
+        private bool stopping;
+
         /// <summary>Default constructor.</summary>
         public DataStoreWriter()
         {
@@ -100,7 +105,7 @@
 
             Start();
             var table = data.ToTable();
-            AddIndexColumns(table, "Current", data.SimulationName);
+            AddIndexColumns(table, "Current", data.SimulationName, data.FolderName);
 
             // Add units
             AddUnits(data.TableName, data.ColumnNames, data.ColumnUnits);
@@ -136,7 +141,7 @@
             else
                 DeleteOldRowsInTable(table.TableName, "Current");
 
-            AddIndexColumns(table, "Current", null);
+            AddIndexColumns(table, "Current", null, null);
 
             lock (lockObject)
             {
@@ -168,6 +173,7 @@
 
                 WaitForIdle();
 
+                stopping = true;
                 commandRunner.Stop();
                 commandRunner = null;
                 commands.Clear();
@@ -179,38 +185,39 @@
         }
 
         /// <summary>Called by the job runner when all jobs completed</summary>
-        public void Completed() { }
+        public void AllCompleted() { }
 
-        /// <summary>Return the next command to run.</summary>
-        public IRunnable GetNextJobToRun()
+        /// <summary>Return an enumeration of jobs that need running.</summary>
+        public IEnumerable<IRunnable> GetJobs()
         {
             // NOTE: This is called from the job runner worker thread.
 
-            // Try and get a command to execute.
-            IRunnable command = null;
-            lock (lockObject)
+            while (!stopping)
             {
-                if (commands.Count > 0)
+                IRunnable command = null;
+                lock (lockObject)
                 {
-                    command = commands[0];
-                    commands.RemoveAt(0);
+                    if (commands.Count > 0)
+                    {
+                        command = commands[0];
+                        commands.RemoveAt(0);
+                    }
+                }
+
+                // If nothing was found to run then return a sleep job 
+                // so that the job runner doesn't exit.
+                if (command == null)
+                {
+                    idle = true;
+                    yield return sleepJob;
+                }
+                else
+                {
+                    idle = false;
+                    somethingHasBeenWriten = true;
+                    yield return command;
                 }
             }
-
-            // If nothing was found to run then return a sleep job 
-            // so that the job runner doesn't exit.
-            if (command == null)
-            {
-                command = sleepJob;
-                idle = true;
-            }
-            else
-            {
-                idle = false;
-                somethingHasBeenWriten = true;
-            }
-
-            return command;
         }
 
         /// <summary>Delete all data in datastore, except for checkpointed data.</summary>
@@ -295,24 +302,29 @@
         /// create an ID if the simulationName is unknown.
         /// </summary>
         /// <param name="simulationName">The name of the simulation to look for.</param>
+        /// <param name="folderName">The name of the folder the simulation belongs in.</param>
         /// <returns>Always returns a number.</returns>
-        public int GetSimulationID(string simulationName)
+        public int GetSimulationID(string simulationName, string folderName)
         {
             if (simulationName == null)
                 return 0;
 
             lock (lockObject)
             {
-                if (!simulationIDs.TryGetValue(simulationName, out int id))
+                if (!simulationIDs.TryGetValue(simulationName, out SimulationDetails details))
                 {
                     // Not found so create a new ID, add it to our collection of ids
+                    int id;
                     if (simulationIDs.Count > 0)
-                        id = simulationIDs.Values.Max() + 1;
+                        id = simulationIDs.Values.Select(v => v.ID).Max() + 1;
                     else
                         id = 1;
-                    simulationIDs.Add(simulationName, id);
+                    simulationIDs.Add(simulationName, new SimulationDetails() { ID = id, FolderName = folderName });
+                    return id;
                 }
-                return id;
+                else if (folderName != null)
+                    details.FolderName = folderName;
+                return details.ID;
             }
         }
 
@@ -356,7 +368,14 @@
             {
                 var data = dbConnection.ExecuteQuery("SELECT * FROM [_Simulations]");
                 foreach (DataRow row in data.Rows)
-                    simulationIDs.Add(row["Name"].ToString(), Convert.ToInt32(row["ID"]));
+                {
+                    int id = Convert.ToInt32(row["ID"], CultureInfo.InvariantCulture);
+                    string folderName = null;
+                    if (data.Columns.Contains("FolderName"))
+                        folderName = row["FolderName"].ToString();
+                    simulationIDs.Add(row["Name"].ToString(),
+                                      new SimulationDetails() { ID = id, FolderName = folderName });
+                }
             }
 
             checkpointIDs.Clear();
@@ -418,7 +437,7 @@
                             foreach (var simulationName in simsNeedingCleaning)
                             {
                                 simulationNamesThatHaveBeenCleanedUp[tableName].Add(simulationName);
-                                simulationIds.Add(GetSimulationID(simulationName));
+                                simulationIds.Add(GetSimulationID(simulationName, null));
                             }
                         }
                     }
@@ -451,8 +470,10 @@
                 {
                     if (commandRunner == null)
                     {
-                        commandRunner = new JobRunnerSync();
-                        commandRunner.Run(this);
+                        stopping = false;
+                        commandRunner = new JobRunner(numProcessors:1);
+                        commandRunner.Add(this);
+                        commandRunner.Run();
                         ReadExistingDatabase(Connection);
                     }
                 }
@@ -465,7 +486,8 @@
         /// <param name="table">The table to add the columns to.</param>
         /// <param name="checkpointName">The name of the checkpoint.</param>
         /// <param name="simulationName">The simulation name.</param>
-        private void AddIndexColumns(DataTable table, string checkpointName, string simulationName)
+        /// <param name="folderName">The name of the folder the simulation sits in.</param>
+        private void AddIndexColumns(DataTable table, string checkpointName, string simulationName, string folderName)
         {
             if (!tablesNotNeedingIndexColumns.Contains(table.TableName))
             {
@@ -502,14 +524,14 @@
                         foreach (DataRow row in table.Rows)
                         {
                             simulationName = row[simulationNameColumnIndex].ToString();
-                            row[simulationColumn] = GetSimulationID(simulationName); ;
+                            row[simulationColumn] = GetSimulationID(simulationName, folderName); ;
                         }
                         table.Columns.RemoveAt(simulationNameColumnIndex);
                     }
                     else if (simulationName != null)
                     {
                         simulationColumn = table.Columns.Add("SimulationID", typeof(int));
-                        var id = GetSimulationID(simulationName);
+                        var id = GetSimulationID(simulationName, folderName);
                         foreach (DataRow row in table.Rows)
                             row[simulationColumn] = id;
                     }
@@ -561,8 +583,9 @@
                 foreach (var simulation in simulationIDs)
                 {
                     var row = simulationsTable.NewRow();
-                    row[0] = simulation.Value;
+                    row[0] = simulation.Value.ID;
                     row[1] = simulation.Key;
+                    row[2] = simulation.Value.FolderName;
                     simulationsTable.Rows.Add(row);
                 }
                 WriteTable(simulationsTable);
@@ -593,6 +616,10 @@
             }
         }
 
+        void IJobManager.JobHasCompleted(JobCompleteArguments args)
+        {
+        }
+
         /// <summary>
         /// A class for encapsulating column units.
         /// </summary>
@@ -603,7 +630,12 @@
 
             /// <summary>Units of column.</summary>
             public string Units { get; set; }
+        }
 
+        private class SimulationDetails
+        {
+            public int ID { get; set; }
+            public string FolderName { get; set; }
         }
     }
 }

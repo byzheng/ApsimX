@@ -25,8 +25,9 @@ namespace Models.CLEM.Reporting
     [ValidParent(ParentType = typeof(CLEMFolder))]
     [ValidParent(ParentType = typeof(Folder))]
     [Description("This report automatically generates a ledger of all shortfalls in CLEM Resource requests.")]
+    [Version(1, 0, 2, "Updated to enable ResourceUnitsConverter to be used.")]
     [Version(1, 0, 1, "")]
-    [HelpUri(@"content/features/reporting/ledgers.htm")]
+    [HelpUri(@"Content/Features/Reporting/Ledgers.htm")]
     public class ReportResourceLedger : Models.Report.Report
     {
         /// <summary>The columns to write to the data store.</summary>
@@ -95,8 +96,11 @@ namespace Models.CLEM.Reporting
                         }
                         else
                         {
-                            if (model.GetType() == typeof(Ruminant))
+                            bool pricingIncluded = false;
+                            if (model.GetType() == typeof(RuminantHerd))
                             {
+                                pricingIncluded = Apsim.ChildrenRecursively(model, typeof(AnimalPricing)).Count() > 0;
+
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ExtraInformation.ID as uID");
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ExtraInformation.Breed as Breed");
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ExtraInformation.HerdName as Herd");
@@ -105,16 +109,40 @@ namespace Models.CLEM.Reporting
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ExtraInformation.Weight as Weight");
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ExtraInformation.SaleFlagAsString as Reason");
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ExtraInformation.PopulationChangeDirection as Change");
+
+                                // ToDo: add pricing for ruminants including buy and sell pricing
+                                // Needs update in CLEMResourceTypeBase and link between ResourcePricing and AnimalPricing.
                             }
                             else
                             {
+                                pricingIncluded = Apsim.ChildrenRecursively(model, typeof(ResourcePricing)).Count() > 0;
+
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.Gain as Gain");
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.Loss * -1.0 as Loss");
-                                variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ResourceType as Resource");
-                                variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.Activity as Activity");
-                                variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ActivityType as ActivityType");
+                                // get all converters for this type of resource
+                                var converterList = Apsim.ChildrenRecursively(model, typeof(ResourceUnitsConverter)).Select(a => a.Name).Distinct();
+                                if (converterList!=null)
+                                {
+                                    foreach (var item in converterList)
+                                    {
+                                        variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ConvertTo(" + item + ",\"gain\") as " + item + "_Gain");
+                                        variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ConvertTo(" + item + ",\"loss\") as " + item + "_Loss");
+                                    }
+
+                                }
+
+                                // add pricing
+                                if (pricingIncluded)
+                                {
+                                    variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ConvertTo(\"$\",\"gain\") as Price_Gain");
+                                    variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ConvertTo(\"$\",\"loss\") as Price_Loss");
+                                }
+
+                                variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.ResourceType.Name as Resource");
+                                variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.Activity.Name as Activity");
                                 variableNames.Add("[Resources]." + this.VariableNames[i] + ".LastTransaction.Reason as Reason");
                             }
+
                         }
                     }
                 }
