@@ -87,11 +87,18 @@ namespace Models.PMF
                 SortedSet<string> cultivarNames = new SortedSet<string>();
                 foreach (Cultivar cultivar in this.Cultivars)
                 {
-                    cultivarNames.Add(cultivar.Name);
+                    string name = cultivar.Name;
+                    List<IModel> memos = Apsim.Children(cultivar, typeof(Memo));
+                    foreach (IModel memo in memos)
+                    {
+                        name += '|' + ((Memo)memo).Text;
+                    }
+
+                    cultivarNames.Add(name);
                     if (cultivar.Alias != null)
                     {
                         foreach (string alias in cultivar.Alias)
-                            cultivarNames.Add(alias);
+                            cultivarNames.Add(alias + "|Alias for " + cultivar.Name);
                     }
                 }
 
@@ -238,7 +245,7 @@ namespace Models.PMF
         [EventSubscribe("PhaseChanged")]
         private void OnPhaseChanged(object sender, PhaseChangedType phaseChange)
         {
-            if (Canopy != null && AboveGround != null)
+            if (sender == this && Canopy != null && AboveGround != null)
             {
                 string message = Phenology.CurrentPhase.Start + "\r\n";
                 if (Canopy != null)

@@ -71,9 +71,8 @@ namespace UserInterface.Presenters
             intellisense.ItemSelected += OnIntellisenseItemSelected;
 
             scriptModel = manager.Children.FirstOrDefault();
-            if (scriptModel != null)
-                propertyPresenter.Attach(scriptModel, managerView.GridView, presenter);
-            managerView.Editor.ScriptMode = true;
+            propertyPresenter.Attach(scriptModel, managerView.GridView, presenter);
+            managerView.Editor.Mode = EditorType.ManagerScript;
             managerView.Editor.Text = manager.Code;
             managerView.Editor.ContextItemsNeeded += OnNeedVariableNames;
             managerView.Editor.LeaveEditor += OnEditorLeave;
