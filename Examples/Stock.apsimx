@@ -59,7 +59,7 @@
             {
               "$type": "Models.Climate.Weather, Models",
               "ConstantsFile": null,
-              "FileName": "%root%\\Examples\\WeatherFiles\\lincoln.met",
+              "FileName": "%root%/Examples/WeatherFiles/lincoln.met",
               "ExcelWorkSheetName": null,
               "Name": "Weather",
               "ResourceName": null,
@@ -2090,7 +2090,7 @@
             {
               "$type": "Models.Climate.Weather, Models",
               "ConstantsFile": null,
-              "FileName": "%root%\\Examples\\WeatherFiles\\lincoln.met",
+              "FileName": "%root%/Examples/WeatherFiles/lincoln.met",
               "ExcelWorkSheetName": null,
               "Name": "Weather",
               "ResourceName": null,
@@ -6958,7 +6958,7 @@
             {
               "$type": "Models.Climate.Weather, Models",
               "ConstantsFile": null,
-              "FileName": "%root%\\Examples\\WeatherFiles\\WaggaWagga.met",
+              "FileName": "%root%/Examples/WeatherFiles/WaggaWagga.met",
               "ExcelWorkSheetName": "",
               "Name": "Weather",
               "ResourceName": null,
@@ -10552,7 +10552,7 @@
             {
               "$type": "Models.Climate.Weather, Models",
               "ConstantsFile": null,
-              "FileName": "%root%\\Examples\\WeatherFiles\\lincoln.met",
+              "FileName": "%root%/Examples/WeatherFiles/lincoln.met",
               "ExcelWorkSheetName": "",
               "Name": "Weather",
               "ResourceName": null,
@@ -72305,7 +72305,7 @@
             {
               "$type": "Models.Climate.Weather, Models",
               "ConstantsFile": null,
-              "FileName": "%root%\\Examples\\WeatherFiles\\lincoln.met",
+              "FileName": "%root%/Examples/WeatherFiles/lincoln.met",
               "ExcelWorkSheetName": "",
               "Name": "Weather",
               "ResourceName": null,
@@ -134182,7 +134182,7 @@
             {
               "$type": "Models.Climate.Weather, Models",
               "ConstantsFile": null,
-              "FileName": "%root%\\Examples\\WeatherFiles\\lincoln.met",
+              "FileName": "%root%/Examples/WeatherFiles/lincoln.met",
               "ExcelWorkSheetName": "",
               "Name": "Weather",
               "ResourceName": null,
