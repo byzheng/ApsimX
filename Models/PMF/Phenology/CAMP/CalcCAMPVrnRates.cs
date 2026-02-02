@@ -44,7 +44,7 @@ namespace Models.PMF.Phen
             // Check the EnvData to a reasonable range
             if (EnvData.VrnTreatTemp <= 0 || EnvData.VrnTreatTemp > 8)
             {
-                throw new Exception("Vernalisation treatment temperature ([Phenology].CAMP.EnvData.VrnTreatTemp) is out of range (0-8 oC).");
+                throw new Exception("Vernalisation treatment temperature ([Phenology].CAMP.EnvData.VrnTreatTemp) is out of range (1-8 oC).");
             }
 
 
