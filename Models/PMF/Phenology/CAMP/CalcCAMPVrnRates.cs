@@ -41,6 +41,13 @@ namespace Models.PMF.Phen
             // Get some parameters organized and set up structure for results
             //////////////////////////////////////////////////////////////////////////////////////
 
+            // Check the EnvData to a reasonable range
+            if (EnvData.VrnTreatTemp <= 0 || EnvData.VrnTreatTemp > 8)
+            {
+                throw new Exception("Vernalisation treatment temperature ([Phenology].CAMP.EnvData.VrnTreatTemp) is out of range (0-8 oC).");
+            }
+
+
             // Initialise structure to hold vern rate coefficients
             CultivarRateParams Params = new CultivarRateParams();
 
