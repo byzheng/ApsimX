@@ -3,6 +3,7 @@ using APSIM.Shared.Utilities;
 using Models;
 using Models.Agroforestry;
 using Models.Core;
+using Models.Core.Run;
 using Models.PMF;
 using Models.Soils;
 using Models.Soils.Arbitrator;
@@ -71,8 +72,8 @@ namespace UnitTests.PMF.Phenology.CAMP
                 }
             };
 
-            sims.Children.Add(replacementsFolder);
-
+            sims.Children.Insert(0, replacementsFolder);
+            Utilities.ResolveLinks(sims);
             DataStore storage = sims.Node.FindChild<DataStore>(recurse: true);
             storage.ClearChildLists();
             storage.UseInMemoryDB = true;
@@ -80,8 +81,12 @@ namespace UnitTests.PMF.Phenology.CAMP
             Utilities.ResolveLinks(sim);
             Clock clock = sim.Node.FindChild<Clock>(recurse: true);
             clock.EndDate = new DateTime(1900, 12, 31);
-            sim.Prepare();
-            sim.Run();
+            sims.Write("test.apsimx");
+            var runner = new Runner(sims);
+            List<Exception> errors = runner.Run();
+
+            //sim.Prepare();
+            //sim.Run();
             storage.Writer.Stop();
             storage.Reader.Refresh();
 
