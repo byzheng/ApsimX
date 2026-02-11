@@ -15,7 +15,9 @@
             "[Barley].PlantType=Barley",
             "[Phenology].Flowering.Target.FixedValue=0",
             "[Phenology].HeadEmergenceLongDayBase.FixedValue = 140",
-            "[Phenology].HeadEmergencePpSensitivity.FixedValue = 0.33"
+            "[Phenology].HeadEmergencePpSensitivity.FixedValue = 0.33",
+            "[Phenology].Zadok.ZadokStageMapping.XYPairs.X=5,5.99,6,7,8,9,10,11",
+            "[Phenology].Zadok.ZadokStageMapping.XYPairs.Y=30,34,39,49,65,71,87,90"
           ],
           "Name": "ModelOverrides",
           "ResourceName": null,
